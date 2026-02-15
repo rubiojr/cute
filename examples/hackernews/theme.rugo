@@ -1,0 +1,123 @@
+THEME = <<~'CSS'
+  QWidget {
+    font-family: sans-serif;
+    font-size: 13px;
+    background: #f6f6ef;
+  }
+  QPushButton, QComboBox {
+    padding: 4px 12px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+  }
+  QPushButton:hover, QComboBox:hover {
+    color: #ff6600;
+    border: 2px solid #ff6600;
+  }
+  QComboBox::drop-down {
+    border: none;
+  }
+  QComboBox QAbstractItemView {
+    background: #fff3e0;
+    color: #333;
+    selection-background-color: #ff6600;
+    selection-color: white;
+    border: 1px solid #e0ddd5;
+    outline: none;
+    padding: 2px;
+  }
+  QComboBox QAbstractItemView::item {
+    padding: 4px 12px;
+  }
+  QComboBox QAbstractItemView::item:hover {
+    background-color: #ff6600;
+    color: white;
+  }
+  QComboBox QAbstractItemView::item:selected {
+    background-color: #ff6600;
+    color: white;
+  }
+  QListWidget {
+    background: #f6f6ef;
+    border: none;
+    outline: none;
+    font-size: 13px;
+  }
+  QListWidget::item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e0ddd5;
+  }
+  QListWidget::item:selected {
+    background: #fff3e0;
+    color: black;
+  }
+  QListWidget::item:hover {
+    background: #f0ede5;
+  }
+CSS
+
+THEME_DARK = <<~'CSS'
+  QWidget {
+    font-family: sans-serif;
+    font-size: 13px;
+    background: #1c1a17;
+    color: #d4c5a9;
+  }
+  QPushButton, QComboBox {
+    padding: 4px 12px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+  }
+  QPushButton:hover, QComboBox:hover {
+    color: #ff6600;
+    border: 2px solid #ff6600;
+  }
+  QComboBox::drop-down {
+    border: none;
+  }
+  QComboBox QAbstractItemView {
+    background: #2a2520;
+    color: #d4c5a9;
+    selection-background-color: #ff6600;
+    selection-color: white;
+    border: 1px solid #3a3530;
+    outline: none;
+    padding: 2px;
+  }
+  QComboBox QAbstractItemView::item {
+    padding: 4px 12px;
+  }
+  QComboBox QAbstractItemView::item:hover {
+    background-color: #ff6600;
+    color: white;
+  }
+  QComboBox QAbstractItemView::item:selected {
+    background-color: #ff6600;
+    color: white;
+  }
+  QListWidget {
+    background: #1c1a17;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    color: #d4c5a9;
+  }
+  QListWidget::item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #2e2a25;
+  }
+  QListWidget::item:selected {
+    background: #3a2e1e;
+    color: #ffcc80;
+  }
+  QListWidget::item:hover {
+    background: #252220;
+  }
+CSS
+
+def css()
+  return THEME
+end
+
+def dark()
+  return THEME_DARK
+end

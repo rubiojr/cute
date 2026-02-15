@@ -1,0 +1,31 @@
+# Cute Counter — a minimal desktop app in Rugo
+#
+# Build and run:
+#   cd examples/cute_counter
+#   rugo build main.rugo -o counter && ./counter
+
+require "github.com/rubiojr/cute@v0.1.1"
+
+cute.app("Counter", 400, 300) do
+  count = cute.state(0)
+
+  cute.vbox do
+    lbl = cute.label("Clicked: 0 times")
+    count.on(fn(v) lbl.set_text("Clicked: #{v} times") end)
+
+    cute.button("Click Me") do
+      count.set(count.get() + 1)
+    end
+
+    cute.hbox do
+      cute.button("Reset") do
+        count.set(0)
+      end
+      cute.button("Quit") do
+        cute.quit()
+      end
+    end
+  end
+
+  cute.shortcut("Ctrl+Q", fn() cute.quit() end)
+end

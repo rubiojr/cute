@@ -150,6 +150,8 @@ end
 # block  — fn() building the UI tree
 def app(title, width, height, block)
   _CTX["qt_app"] = qt6.new_qapplication(["rugo"])
+  fusion = qt6.qstyle_factory_create("Fusion")
+  qt6.qapplication_set_style(fusion)
   _CTX["win"] = qt6.new_qwidget2()
   _CTX["win"].set_window_title(title)
   _CTX["win"].resize(width, height)
@@ -303,6 +305,9 @@ end
 # on_change receives the selected text when selection changes.
 def combo(items, on_change)
   cb = qt6.new_qcombo_box2()
+  # Use QStyledItemDelegate so stylesheets apply to popup items.
+  delegate = qt6.new_qstyled_item_delegate2(cb)
+  cb.set_item_delegate(delegate)
   for item in items
     cb.add_item(item)
   end
