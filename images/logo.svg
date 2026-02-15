@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 270">
+  <defs>
+    <linearGradient id="fo" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#0C1F6E"/>
+      <stop offset="50%" stop-color="#0F52BA"/>
+      <stop offset="100%" stop-color="#2986CC"/>
+    </linearGradient>
+    <linearGradient id="fm" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#1338BE"/>
+      <stop offset="40%" stop-color="#3B8FFF"/>
+      <stop offset="100%" stop-color="#8ED5FF"/>
+    </linearGradient>
+    <linearGradient id="fi" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#5BBAFF"/>
+      <stop offset="50%" stop-color="#A8DAEF"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="ey" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1338BE"/>
+      <stop offset="100%" stop-color="#6D28D9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer flame — scaled from reference paths -->
+  <g transform="translate(5,10) scale(2.19,2.19)">
+    <path d="M14.45,35.35c1.82,14.45,4.65,25.4,9.44,29.45C24.48,30.87,43,27.4,38.18,0,53.52,3,67.77,33.33,71.36,66.15a37.5,37.5,0,0,0,6.53-19.46c13.76,15.72,21.31,56.82-.17,69.52-12.53,7.41-38.13,7.79-51.46,5.27a27.64,27.64,0,0,1-13.5-5.36c-19.2-14.66-15.17-62.25,1.69-80.77Z"
+          fill="url(#fo)">
+      <animateTransform attributeName="transform" type="scale" values="1 1;1.01 0.98;1 1;0.99 1.02;1 1" dur="2s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Middle flame — scaled from reference -->
+  <g transform="translate(5,10) scale(2.19,2.19)">
+    <path d="M77.73,116.2h0c-8,4.74-21.42,6.61-33.51,6.67H42.45a95.69,95.69,0,0,1-16.19-1.39,27.64,27.64,0,0,1-13.5-5.36,2.43,2.43,0,0,0-.25-.2c-2.13-10.28,1.76-24,8.49-31.29a25.49,25.49,0,0,0,4.85,13.71C28.51,75.22,39.11,57,50.5,54.94c-3,19.1,11,24.21,10.62,42.45,3.56-2.85,5.66-10.57,7-20.75,9.12,9.49,13.59,26.32,9.59,39.56Z"
+          fill="url(#fm)">
+      <animateTransform attributeName="transform" type="scale" values="1 1;0.99 1.02;1 1;1.01 0.98;1 1" dur="1.8s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Inner flame — scaled from reference -->
+  <g transform="translate(5,10) scale(2.19,2.19)">
+    <path d="M65.81,120.73a115,115,0,0,1-39.55.82l-1-.13c.06-5.73,2.21-12,5.47-15.73a17.18,17.18,0,0,0,2.93,8.84c1.61-14.91,8-26.63,14.88-28-1.79,12.32,6.65,15.61,6.4,27.37,2.15-1.84,3.42-6.82,4.23-13.38,4.47,5,7.09,12.84,6.63,20.19Z"
+          fill="url(#fi)"/>
+  </g>
+
+  <!-- Face — inside the inner flame -->
+  <!-- Eyes -->
+  <circle cx="80" cy="220" r="10" fill="white"/>
+  <circle cx="116" cy="220" r="10" fill="white"/>
+  <circle cx="82.5" cy="221" r="5.6" fill="url(#ey)"/>
+  <circle cx="118.5" cy="221" r="5.6" fill="url(#ey)"/>
+  <ellipse cx="84" cy="222" rx="2.5" ry="2.5" fill="#0F172A">
+    <animate attributeName="ry" values="2.5;2.5;0.3;2.5;2.5" keyTimes="0;0.42;0.46;0.50;1" dur="4s" repeatCount="indefinite"/>
+  </ellipse>
+  <ellipse cx="120" cy="222" rx="2.5" ry="2.5" fill="#0F172A">
+    <animate attributeName="ry" values="2.5;2.5;0.3;2.5;2.5" keyTimes="0;0.42;0.46;0.50;1" dur="4s" repeatCount="indefinite"/>
+  </ellipse>
+  <circle cx="80" cy="218" r="2.5" fill="white"/>
+  <circle cx="116" cy="218" r="2.5" fill="white"/>
+
+  <!-- Nostrils -->
+  <ellipse cx="93" cy="234" rx="2.2" ry="1.8" fill="#0C1F6E" opacity="0.3"/>
+  <ellipse cx="105" cy="234" rx="2.2" ry="1.8" fill="#0C1F6E" opacity="0.3"/>
+
+  <!-- Mouth -->
+  <path d="M87,241 Q98,249 110,241" fill="none" stroke="#0C1F6E" stroke-width="1.6" stroke-linecap="round" opacity="0.4"/>
+  <polygon points="92,242 94,247 96,242" fill="white" opacity="0.55"/>
+  <polygon points="101,242 103,247 105,242" fill="white" opacity="0.55"/>
+
+  <!-- Ice shards -->
+  <g opacity="0.45">
+    <rect x="2" y="92" width="4" height="4" rx="1" transform="rotate(45 4 94)" fill="#8ED5FF">
+      <animate attributeName="y" values="92;86;92" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.45;0.7;0.45" dur="3s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="192" y="86" width="3.5" height="3.5" rx="1" transform="rotate(30 194 88)" fill="#5BBAFF">
+      <animate attributeName="y" values="86;80;86" dur="2.6s" begin="0.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.45;0.7;0.45" dur="2.6s" begin="0.5s" repeatCount="indefinite"/>
+    </rect>
+    <circle cx="8" cy="55" r="1.5" fill="#A8DAEF">
+      <animate attributeName="cy" values="55;48;55" dur="3.4s" begin="0.2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="190" cy="50" r="1.3" fill="#A8DAEF">
+      <animate attributeName="cy" values="50;43;50" dur="2.8s" begin="0.8s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+</svg>
