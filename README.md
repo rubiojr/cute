@@ -1,6 +1,7 @@
 <p align="center">
   <img src="images/logo.svg" alt="Cute — Light up your desktop" width="200"/>
 </p>
+
 # Cute Documentation
 
 A declarative UI toolkit for [Rugo](https://github.com/rubiojr/rugo).
