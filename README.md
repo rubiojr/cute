@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/logo.svg" alt="Cute — Light up your desktop" width="700"/>
+  <img src="images/logo.svg" alt="Cute — Light up your desktop" width="200"/>
 </p>
 # Cute Documentation
 
