@@ -1,0 +1,460 @@
+# Cute — A declarative UI toolkit for Rugo
+#
+# Build native desktop apps with do...end blocks for nesting,
+# module-level state for context, and zero ceremony.
+#
+# Usage:
+#   require "github.com/rubiojr/cute@v0.1.0"
+#
+#   cute.app("My App", 400, 300) do
+#     cute.vbox do
+#       cute.label "Hello, world!"
+#       cute.button "Quit" do
+#         cute.quit
+#       end
+#     end
+#   end
+#
+# Prerequisites:
+#   - Qt6 development libraries (apt install qt6-base-dev)
+#   - Go 1.22+
+#   - miqt: fetched automatically on first build
+
+require "github.com/mappu/miqt/qt6@v0.13.0"
+require "github.com/mappu/miqt/qt6/mainthread@v0.13.0" as "_mt"
+
+# Module-level context — tracks layout stack, window, and Qt app.
+# Functions read and mutate this hash's contents (not the binding itself).
+_CTX = {stack: [], win: nil, qt_app: nil}
+
+# -- Private helpers ----------------------------------------------------------
+
+def _current()
+  s = _CTX["stack"]
+  if len(s) == 0
+    return nil
+  end
+  return s[-1]
+end
+
+def _add(widget)
+  top = _current()
+  if top != nil
+    top.add_widget(widget)
+  end
+end
+
+def _push(layout)
+  _CTX["stack"] = append(_CTX["stack"], layout)
+end
+
+def _pop()
+  s = _CTX["stack"]
+  _CTX["stack"] = s[0, len(s) - 1]
+end
+
+# Applies a props hash to a Qt widget.
+#
+# Supported keys:
+#   id:       string  — set_object_name
+#   width:    int     — set_fixed_width
+#   height:   int     — set_fixed_height
+#   visible:  bool    — set_visible
+#   enabled:  bool    — set_enabled
+#   tooltip:  string  — set_tool_tip
+#   css:      string  — set_style_sheet (per-widget)
+#   wrap:     bool    — set_word_wrap (QLabel)
+#   align:    string  — set_alignment ("left","center","right")
+#   margins:  array   — set_contents_margins [l,t,r,b] or [h,v]
+def _apply_props(widget, props)
+  if props == nil
+    return nil
+  end
+  for key in props
+    val = props[key]
+    if key == "id"
+      widget.set_object_name(val)
+    end
+    if key == "width"
+      widget.set_fixed_width(val)
+    end
+    if key == "height"
+      widget.set_fixed_height(val)
+    end
+    if key == "visible"
+      widget.set_visible(val)
+    end
+    if key == "enabled"
+      widget.set_enabled(val)
+    end
+    if key == "tooltip"
+      widget.set_tool_tip(val)
+    end
+    if key == "css"
+      widget.set_style_sheet(val)
+    end
+    if key == "wrap"
+      widget.set_word_wrap(val)
+    end
+    if key == "align"
+      if val == "left"
+        widget.set_alignment(1)
+      end
+      if val == "center"
+        widget.set_alignment(4)
+      end
+      if val == "right"
+        widget.set_alignment(2)
+      end
+    end
+    if key == "margins"
+      if len(val) == 4
+        widget.set_contents_margins(val[0], val[1], val[2], val[3])
+      end
+      if len(val) == 2
+        widget.set_contents_margins(val[0], val[1], val[0], val[1])
+      end
+    end
+  end
+end
+
+# -- Public API ---------------------------------------------------------------
+
+# Applies a props hash to any widget or layout. Returns the widget.
+#
+# Supported keys:
+#   id:       string  — set_object_name
+#   width:    int     — set_fixed_width
+#   height:   int     — set_fixed_height
+#   visible:  bool    — set_visible
+#   enabled:  bool    — set_enabled
+#   tooltip:  string  — set_tool_tip
+#   css:      string  — set_style_sheet (per-widget)
+#   wrap:     bool    — set_word_wrap (QLabel)
+#   align:    string  — set_alignment ("left","center","right")
+#   margins:  array   — set_contents_margins [l,t,r,b] or [h,v]
+#
+# Example:
+#   lbl = cute.label("Hello")
+#   cute.props(lbl, {id: "title", css: cute.style({bold: true, size: 18})})
+def props(widget, p)
+  _apply_props(widget, p)
+  return widget
+end
+
+# Creates a Cute application window and runs the event loop.
+#
+# title  — window title
+# width  — window width in pixels
+# height — window height in pixels
+# block  — fn() building the UI tree
+def app(title, width, height, block)
+  _CTX["qt_app"] = qt6.new_qapplication(["rugo"])
+  _CTX["win"] = qt6.new_qwidget2()
+  _CTX["win"].set_window_title(title)
+  _CTX["win"].resize(width, height)
+
+  block()
+
+  _CTX["win"].show()
+  qt6.qapplication_exec()
+end
+
+# Quit the application.
+def quit()
+  qt6.qcore_application_quit()
+end
+
+# Access the raw QWidget window handle.
+def window()
+  return _CTX["win"]
+end
+
+# Vertical box layout.
+# Widgets created inside the block stack top-to-bottom.
+def vbox(block)
+  layout = nil
+  if len(_CTX["stack"]) == 0
+    layout = qt6.new_qvbox_layout(_CTX["win"])
+  else
+    layout = qt6.new_qvbox_layout2()
+    _current().add_layout(layout)
+  end
+  _push(layout)
+  block()
+  _pop()
+  return layout
+end
+
+# Horizontal box layout.
+# Widgets created inside the block stack left-to-right.
+def hbox(block)
+  layout = nil
+  if len(_CTX["stack"]) == 0
+    layout = qt6.new_qhbox_layout(_CTX["win"])
+  else
+    layout = qt6.new_qhbox_layout2()
+    _current().add_layout(layout)
+  end
+  _push(layout)
+  block()
+  _pop()
+  return layout
+end
+
+# Text label. Returns QLabel handle.
+def label(text)
+  lbl = qt6.new_qlabel3(text)
+  _add(lbl)
+  return lbl
+end
+
+# Push button. Returns QPushButton handle.
+# on_click — fn() callback, or nil for no handler.
+def button(text, on_click)
+  btn = qt6.new_qpush_button3(text)
+  if on_click != nil
+    btn.on_clicked(on_click)
+  end
+  _add(btn)
+  return btn
+end
+
+# Text input field. Returns QLineEdit handle.
+# placeholder is optional (pass nil for none).
+def input(placeholder)
+  inp = qt6.new_qline_edit2()
+  if placeholder != nil
+    inp.set_placeholder_text(placeholder)
+  end
+  _add(inp)
+  return inp
+end
+
+# Checkbox. Returns QCheckBox handle.
+# on_change receives the check state as an integer (0=off, 2=on).
+def checkbox(text, on_change)
+  cb = qt6.new_qcheck_box3(text)
+  if on_change != nil
+    cb.on_state_changed(on_change)
+  end
+  _add(cb)
+  return cb
+end
+
+# Stretch spacer — pushes subsequent widgets to the end.
+def spacer()
+  top = _current()
+  if top != nil
+    top.add_stretch_with_stretch(1)
+  end
+end
+
+# Horizontal separator line. Returns QFrame handle.
+def separator()
+  line = qt6.new_qframe2()
+  line.set_frame_shape(4)
+  line.set_frame_shadow(48)
+  _add(line)
+  return line
+end
+
+# Keyboard shortcut from a Qt key string (e.g. "Ctrl+Q", "Ctrl+S").
+def shortcut(key, callback)
+  seq = qt6.new_qkey_sequence2(key)
+  sc = qt6.new_qshortcut2(seq, _CTX["win"])
+  sc.on_activated(callback)
+  return sc
+end
+
+# Apply a Qt stylesheet (CSS) to the entire window.
+def stylesheet(css)
+  _CTX["win"].set_style_sheet(css)
+end
+
+# Information dialog.
+def alert(title, message)
+  qt6.qmessage_box_information(_CTX["win"], title, message)
+end
+
+# Yes/No confirmation dialog. Returns true if Yes was clicked.
+def confirm(title, message)
+  result = qt6.qmessage_box_question(_CTX["win"], title, message)
+  return result == 16384
+end
+
+# Scrollable area. Widgets created inside the block are
+# placed in a scrollable viewport. Returns QScrollArea handle.
+def scroll(block)
+  area = qt6.new_qscroll_area2()
+  area.set_widget_resizable(true)
+  content = qt6.new_qwidget2()
+  inner = qt6.new_qvbox_layout(content)
+  area.set_widget(content)
+  _add(area)
+  _push(inner)
+  block()
+  _pop()
+  return area
+end
+
+# Dropdown combo box. Returns QComboBox handle.
+# items is an array of strings.
+# on_change receives the selected text when selection changes.
+def combo(items, on_change)
+  cb = qt6.new_qcombo_box2()
+  for item in items
+    cb.add_item(item)
+  end
+  if on_change != nil
+    cb.on_current_text_changed(on_change)
+  end
+  _add(cb)
+  return cb
+end
+
+# List widget for scrollable lists. Returns QListWidget handle.
+# Use .add_item(text) to add items, .clear() to clear.
+def list_widget()
+  lw = qt6.new_qlist_widget2()
+  _add(lw)
+  return lw
+end
+
+# Single-shot timer. Fires callback once after ms milliseconds.
+def after(ms, callback)
+  t = qt6.new_qtimer()
+  t.set_single_shot(true)
+  t.on_timeout(callback)
+  t.start(ms)
+  return t
+end
+
+# Repeating timer. Fires callback every ms milliseconds.
+# Call .stop() on the returned handle to cancel.
+def timer(ms, callback)
+  t = qt6.new_qtimer()
+  t.on_timeout(callback)
+  t.start(ms)
+  return t
+end
+
+# Creates a reactive state container.
+#
+# Returns a hash with:
+#   .get()        — returns the current value
+#   .set(new_val) — updates the value and notifies observers
+#   .on(fn(val))  — registers a callback for value changes
+#
+# Example:
+#   count = cute.state(0)
+#   count.on(fn(v) lbl.set_text("Count: #{v}") end)
+#   count.set(count.get() + 1)
+def state(initial)
+  s = {__val__: initial, __observers__: []}
+  s["get"] = fn() s["__val__"] end
+  s["set"] = fn(v)
+    s["__val__"] = v
+    for obs in s["__observers__"]
+      obs(v)
+    end
+  end
+  s["on"] = fn(callback)
+    s["__observers__"] = append(s["__observers__"], callback)
+  end
+  return s
+end
+
+# Builds a CSS string from a props hash.
+#
+# Supported keys:
+#   bg:         string  — background color
+#   color:      string  — text color
+#   size:       int     — font-size in px
+#   bold:       bool    — font-weight: bold
+#   italic:     bool    — font-style: italic
+#   family:     string  — font-family
+#   padding:    int/arr — padding (single value or [h,v] or [t,r,b,l])
+#   margin:     int/arr — margin (same format as padding)
+#   border:     string  — border shorthand (e.g. "1px solid red")
+#   radius:     int     — border-radius in px
+#
+# Example:
+#   cute.style({bg: "#ff6600", color: "white", bold: true, padding: 8})
+#   # → "background: #ff6600; color: white; font-weight: bold; padding: 8px;"
+def style(props)
+  parts = []
+  for key in props
+    val = props[key]
+    if key == "bg"
+      parts = append(parts, "background: #{val}")
+    end
+    if key == "color"
+      parts = append(parts, "color: #{val}")
+    end
+    if key == "size"
+      parts = append(parts, "font-size: #{val}px")
+    end
+    if key == "bold" && val == true
+      parts = append(parts, "font-weight: bold")
+    end
+    if key == "italic" && val == true
+      parts = append(parts, "font-style: italic")
+    end
+    if key == "family"
+      parts = append(parts, "font-family: #{val}")
+    end
+    if key == "padding"
+      if type_of(val) == "Integer"
+        parts = append(parts, "padding: #{val}px")
+      else
+        if len(val) == 2
+          parts = append(parts, "padding: #{val[0]}px #{val[1]}px")
+        end
+        if len(val) == 4
+          parts = append(parts, "padding: #{val[0]}px #{val[1]}px #{val[2]}px #{val[3]}px")
+        end
+      end
+    end
+    if key == "margin"
+      if type_of(val) == "Integer"
+        parts = append(parts, "margin: #{val}px")
+      else
+        if len(val) == 2
+          parts = append(parts, "margin: #{val[0]}px #{val[1]}px")
+        end
+        if len(val) == 4
+          parts = append(parts, "margin: #{val[0]}px #{val[1]}px #{val[2]}px #{val[3]}px")
+        end
+      end
+    end
+    if key == "border"
+      parts = append(parts, "border: #{val}")
+    end
+    if key == "radius"
+      parts = append(parts, "border-radius: #{val}px")
+    end
+  end
+  result = ""
+  for p in parts
+    result = result + p + "; "
+  end
+  return result
+end
+
+# Runs a callback on the Qt main thread and waits for it to complete.
+#
+# Qt widgets must only be accessed from the main thread. Use this
+# from inside a spawn block to safely update UI after background
+# work completes.
+#
+# Example:
+#   spawn
+#     data = http.get("https://api.example.com/data")
+#     cute.ui(fn()
+#       lbl.set_text(data.body)
+#     end)
+#   end
+def ui(callback)
+  _mt.wait(callback)
+end
