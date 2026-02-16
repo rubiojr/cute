@@ -1,16 +1,23 @@
 # Cute — A declarative UI toolkit for Rugo
 #
 # Build native desktop apps with do...end blocks for nesting,
-# module-level state for context, and zero ceremony.
+# reactive state bindings, and zero ceremony.
 #
 # Usage:
 #   require "github.com/rubiojr/cute@v0.1.0"
 #
 #   cute.app("My App", 400, 300) do
+#     count = cute.state(0)
+#
 #     cute.vbox do
-#       cute.label "Hello, world!"
-#       cute.button "Quit" do
-#         cute.quit
+#       cute.label(count, fn(v) "Clicked: #{v} times" end)
+#
+#       cute.button("Click Me") do
+#         count.set(count.get() + 1)
+#       end
+#
+#       cute.button("Quit", {css: "color: red;"}) do
+#         cute.quit()
 #       end
 #     end
 #   end
@@ -51,6 +58,43 @@ end
 def _pop()
   s = _CTX["stack"]
   _CTX["stack"] = s[0, len(s) - 1]
+end
+
+# Returns true if obj is a state container created by cute.state().
+def _is_state(obj)
+  if type_of(obj) != "Hash"
+    return false
+  end
+  if obj["__observers__"] != nil
+    return true
+  end
+  return false
+end
+
+# Applies a value to a named widget property.
+#
+# Supported property names:
+#   "text"    — set_text
+#   "visible" — set_visible
+#   "enabled" — set_enabled
+#   "css"     — set_style_sheet
+#   "tooltip" — set_tool_tip
+def _apply_binding(widget, prop, value)
+  if prop == "text"
+    widget.set_text(value)
+  end
+  if prop == "visible"
+    widget.set_visible(value)
+  end
+  if prop == "enabled"
+    widget.set_enabled(value)
+  end
+  if prop == "css"
+    widget.set_style_sheet(value)
+  end
+  if prop == "tooltip"
+    widget.set_tool_tip(value)
+  end
 end
 
 # Applies a props hash to a Qt widget.
@@ -205,41 +249,113 @@ def hbox(block)
 end
 
 # Text label. Returns QLabel handle.
-def label(text)
-  lbl = qt6.new_qlabel3(text)
+#
+# Accepts either a plain string or a state object:
+#
+#   cute.label("Hello")
+#   cute.label("Hello", {css: "color: red;"})
+#   cute.label(count, fn(v) "Count: #{v}" end)
+#   cute.label(count)
+#
+# When a state is passed, the label auto-subscribes to changes.
+# The optional transform fn maps the state value to display text.
+def label(text_or_state, arg2, arg3)
+  if _is_state(text_or_state)
+    transform = arg2
+    p = arg3
+    initial = text_or_state.get()
+    if transform != nil
+      initial = transform(initial)
+    else
+      initial = "#{initial}"
+    end
+    lbl = qt6.new_qlabel3(initial)
+    text_or_state.on(fn(v)
+      val = v
+      if transform != nil
+        val = transform(v)
+      else
+        val = "#{v}"
+      end
+      lbl.set_text(val)
+    end)
+    _apply_props(lbl, p)
+    _add(lbl)
+    return lbl
+  end
+  lbl = qt6.new_qlabel3(text_or_state)
+  _apply_props(lbl, arg2)
   _add(lbl)
   return lbl
 end
 
 # Push button. Returns QPushButton handle.
-# on_click — fn() callback, or nil for no handler.
-def button(text, on_click)
+#
+#   cute.button("Quit") do cute.quit() end
+#   cute.button("Submit", {css: "color: green;"}) do ... end
+#   cute.button("Submit", fn() ... end)
+#
+# The do...end block (or explicit fn) is the click handler.
+# The optional props hash is applied to the button widget.
+def button(text, arg1, arg2)
+  props = nil
+  on_click = nil
+  if type_of(arg1) == "Hash"
+    props = arg1
+    on_click = arg2
+  else
+    on_click = arg1
+    if on_click == nil
+      on_click = arg2
+    end
+  end
   btn = qt6.new_qpush_button3(text)
   if on_click != nil
     btn.on_clicked(on_click)
   end
+  _apply_props(btn, props)
   _add(btn)
   return btn
 end
 
 # Text input field. Returns QLineEdit handle.
-# placeholder is optional (pass nil for none).
-def input(placeholder)
+#
+#   cute.input("Search...")
+#   cute.input("Search...", {width: 200})
+def input(placeholder, props)
   inp = qt6.new_qline_edit2()
   if placeholder != nil
     inp.set_placeholder_text(placeholder)
   end
+  _apply_props(inp, props)
   _add(inp)
   return inp
 end
 
 # Checkbox. Returns QCheckBox handle.
+#
+#   cute.checkbox("Dark mode") do |state| ... end
+#   cute.checkbox("Dark mode", {css: "..."}) do |state| ... end
+#   cute.checkbox("Dark mode", fn(state) ... end)
+#
 # on_change receives the check state as an integer (0=off, 2=on).
-def checkbox(text, on_change)
+def checkbox(text, arg1, arg2)
+  props = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    props = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+    if on_change == nil
+      on_change = arg2
+    end
+  end
   cb = qt6.new_qcheck_box3(text)
   if on_change != nil
     cb.on_state_changed(on_change)
   end
+  _apply_props(cb, props)
   _add(cb)
   return cb
 end
@@ -301,9 +417,24 @@ def scroll(block)
 end
 
 # Dropdown combo box. Returns QComboBox handle.
+#
+#   cute.combo(["A", "B", "C"], fn(text) ... end)
+#   cute.combo(["A", "B", "C"], {width: 120}, fn(text) ... end)
+#
 # items is an array of strings.
 # on_change receives the selected text when selection changes.
-def combo(items, on_change)
+def combo(items, arg1, arg2)
+  props = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    props = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+    if on_change == nil
+      on_change = arg2
+    end
+  end
   cb = qt6.new_qcombo_box2()
   # Use QStyledItemDelegate so stylesheets apply to popup items.
   delegate = qt6.new_qstyled_item_delegate2(cb)
@@ -314,14 +445,53 @@ def combo(items, on_change)
   if on_change != nil
     cb.on_current_text_changed(on_change)
   end
+  _apply_props(cb, props)
   _add(cb)
   return cb
 end
 
 # List widget for scrollable lists. Returns QListWidget handle.
 # Use .add_item(text) to add items, .clear() to clear.
-def list_widget()
+def list_widget(props)
   lw = qt6.new_qlist_widget2()
+  _apply_props(lw, props)
+  _add(lw)
+  return lw
+end
+
+# Reactive list bound to a state container.
+#
+# Automatically clears and re-renders when the state changes.
+# render_fn receives (item, index) and returns a display string.
+# on_select receives the row index when the selection changes.
+#
+# Example:
+#   items = cute.state(["Apple", "Banana", "Cherry"])
+#   cute.list(items, fn(item, i) "#{i + 1}. #{item}" end, fn(row)
+#     puts "Selected row #{row}"
+#   end)
+#
+#   # later — list re-renders automatically:
+#   items.set(["X", "Y", "Z"])
+def list(items_state, render_fn, on_select)
+  lw = qt6.new_qlist_widget2()
+
+  populate = fn(items)
+    lw.clear()
+    i = 0
+    for item in items
+      lw.add_item(render_fn(item, i))
+      i += 1
+    end
+  end
+
+  populate(items_state.get())
+  items_state.on(populate)
+
+  if on_select != nil
+    lw.on_current_row_changed(on_select)
+  end
+
   _add(lw)
   return lw
 end
@@ -368,6 +538,33 @@ def state(initial)
     s["__observers__"] = append(s["__observers__"], callback)
   end
   return s
+end
+
+# Binds a state container to a widget property.
+#
+# Sets the initial value immediately and auto-updates on state changes.
+# The optional transform fn maps the state value before applying.
+#
+# Supported property names: "text", "visible", "enabled", "css", "tooltip"
+#
+# Example:
+#   status = cute.state("Ready")
+#   lbl = cute.label("Ready")
+#   cute.bind(status, lbl, "text")
+#
+#   count = cute.state(0)
+#   lbl = cute.label("0")
+#   cute.bind(count, lbl, "text", fn(v) "Count: #{v}" end)
+def bind(s, widget, prop, transform)
+  apply = fn(v)
+    val = v
+    if transform != nil
+      val = transform(v)
+    end
+    _apply_binding(widget, prop, val)
+  end
+  apply(s.get())
+  s.on(apply)
 end
 
 # Builds a CSS string from a props hash.

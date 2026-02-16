@@ -11,7 +11,7 @@
 #   - Qt6 dev libs (apt install qt6-base-dev)
 #   - Go 1.22+
 
-require "github.com/rubiojr/cute@v0.1.1"
+require "./../../" as cute
 require "theme"
 use "http"
 use "json"
@@ -168,7 +168,7 @@ cute.app("Hacker News", 1024, 640) do
   apply_theme()
 
   current_feed = cute.state("top")
-  stories = []
+  stories = cute.state([])
   story_list = nil
   status = cute.state("Starting...")
   detail_title = nil
@@ -178,10 +178,11 @@ cute.app("Hacker News", 1024, 640) do
 
   selected_story = fn()
     row = story_list.current_row()
-    if row < 0 || row >= len(stories)
+    items = stories.get()
+    if row < 0 || row >= len(items)
       return nil
     end
-    return stories[row]
+    return items[row]
   end
 
   # -- load / reload --
@@ -189,19 +190,14 @@ cute.app("Hacker News", 1024, 640) do
   load = fn(feed)
     current_feed.set(feed)
     status.set("Loading #{feed} stories...")
-    story_list.clear()
+    stories.set([])
 
     # Fetch in a background goroutine to keep the UI responsive.
     spawn
       result = fetch_stories(feed)
       cute.ui(fn()
-        stories = result
-        i = 0
-        for story in stories
-          story_list.add_item(story_line(story, i))
-          i += 1
-        end
-        status.set("#{len(stories)} #{feed} stories")
+        stories.set(result)
+        status.set("#{len(result)} #{feed} stories")
       end)
     end
   end
@@ -212,22 +208,22 @@ cute.app("Hacker News", 1024, 640) do
 
     # Header bar
     header = cute.hbox do
-      cute.label("🔶  Hacker News")
+      cute.label("🔶  Hacker News", nil, nil)
       cute.spacer()
       cute.combo(["Top", "New", "Best", "Ask", "Show"], fn(text)
         load(str.lower(text))
-      end)
-      cute.button("↻  Refresh") do
+      end, nil)
+      cute.button("↻  Refresh", nil) do
         load(current_feed.get())
       end
-      cute.button("A-") do
+      cute.button("A-", nil) do
         size = font_size.get()
         if size > 8
           font_size.set(size - 1)
           apply_theme()
         end
       end
-      cute.button("A+") do
+      cute.button("A+", nil) do
         size = font_size.get()
         if size < 24
           font_size.set(size + 1)
@@ -237,9 +233,10 @@ cute.app("Hacker News", 1024, 640) do
     end
     cute.props(header, {margins: [8, 6, 8, 6]})
 
-    # Story list
-    story_list = cute.list_widget()
-    story_list.on_current_row_changed(fn(row)
+    # Story list — reactive, re-renders when stories state changes
+    story_list = cute.list(stories, fn(story, i)
+      story_line(story, i)
+    end, fn(row)
       s = selected_story()
       if s == nil
         detail_title.set_text("")
@@ -255,23 +252,22 @@ cute.app("Hacker News", 1024, 640) do
 
     # Detail / action bar
     footer = cute.hbox do
-      detail_title = cute.label("")
+      detail_title = cute.label("", nil, nil)
       detail_title.set_maximum_width(400)
-      detail_meta = cute.label("")
+      detail_meta = cute.label("", nil, nil)
       detail_meta.set_maximum_width(300)
       cute.spacer()
-      cute.button("Open ↗") do
+      cute.button("Open ↗", nil) do
         open_url(story_url(selected_story()))
       end
-      cute.button("Comments 💬") do
+      cute.button("Comments 💬", nil) do
         open_url(comments_url(selected_story()))
       end
     end
     cute.props(footer, {margins: [12, 4, 12, 4]})
 
-    # Status bar — bound to reactive state
-    status_lbl = cute.label(status.get())
-    status.on(fn(text) status_lbl.set_text(text) end)
+    # Status bar — auto-bound to reactive state
+    cute.label(status, nil, nil)
   end
 
   # -- keyboard shortcuts --

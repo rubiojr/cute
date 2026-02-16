@@ -4,24 +4,23 @@
 #   cd examples/cute_counter
 #   rugo build main.rugo -o counter && ./counter
 
-require "github.com/rubiojr/cute@v0.1.1"
+require "./../../" as "cute"
 
 cute.app("Counter", 400, 300) do
   count = cute.state(0)
 
   cute.vbox do
-    lbl = cute.label("Clicked: 0 times")
-    count.on(fn(v) lbl.set_text("Clicked: #{v} times") end)
+    cute.label(count, fn(v) "Clicked: #{v} times" end, nil)
 
-    cute.button("Click Me") do
+    cute.button("Click Me", nil) do
       count.set(count.get() + 1)
     end
 
     cute.hbox do
-      cute.button("Reset") do
+      cute.button("Reset", nil) do
         count.set(0)
       end
-      cute.button("Quit") do
+      cute.button("Quit", nil) do
         cute.quit()
       end
     end
