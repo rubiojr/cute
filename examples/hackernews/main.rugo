@@ -4,7 +4,7 @@
 # open links in the browser, concurrent fetching, keyboard shortcuts.
 #
 # Build and run:
-#   cd examples/cute_hackernews
+#   cd examples/hackernews
 #   rugo build main.rugo -o hackernews && ./hackernews
 #
 # Prerequisites:
@@ -156,16 +156,15 @@ LIGHT_MODE = cli.get("light")
 cute.app("Hacker News", 1024, 640) do
   font_size = cute.state(14)
 
-  apply_theme = fn()
-    size = font_size.get()
+  # Reactive theme — auto-updates the stylesheet when font_size changes
+  css = cute.computed(font_size, fn(size)
+    result = theme.dark(size)
     if LIGHT_MODE
-      cute.stylesheet(theme.css(size))
-    else
-      cute.stylesheet(theme.dark(size))
+      result = theme.css(size)
     end
-  end
-
-  apply_theme()
+    result
+  end)
+  cute.stylesheet(css)
 
   current_feed = cute.state("top")
   stories = cute.state([])
@@ -192,14 +191,10 @@ cute.app("Hacker News", 1024, 640) do
     status.set("Loading #{feed} stories...")
     stories.set([])
 
-    # Fetch in a background goroutine to keep the UI responsive.
-    spawn
-      result = fetch_stories(feed)
-      cute.ui(fn()
-        stories.set(result)
-        status.set("#{len(result)} #{feed} stories")
-      end)
-    end
+    cute.fetch(fn() fetch_stories(feed) end, fn(result)
+      stories.set(result)
+      status.set("#{len(result)} #{feed} stories")
+    end)
   end
 
   # -- build UI ---------------------------------------------------------------
@@ -207,31 +202,26 @@ cute.app("Hacker News", 1024, 640) do
   cute.vbox do
 
     # Header bar
-    header = cute.hbox do
-      cute.label("🔶  Hacker News", nil, nil)
+    cute.hbox({margins: [8, 6, 8, 6]}) do
+      cute.label("🔶  Hacker News")
       cute.spacer()
       cute.combo(["Top", "New", "Best", "Ask", "Show"], fn(text)
         load(str.lower(text))
-      end, nil)
-      cute.button("↻  Refresh", nil) do
+      end)
+      cute.button("↻  Refresh") do
         load(current_feed.get())
       end
-      cute.button("A-", nil) do
-        size = font_size.get()
-        if size > 8
-          font_size.set(size - 1)
-          apply_theme()
+      cute.button("A-") do
+        if font_size.get() > 8
+          font_size.update(fn(v) v - 1 end)
         end
       end
-      cute.button("A+", nil) do
-        size = font_size.get()
-        if size < 24
-          font_size.set(size + 1)
-          apply_theme()
+      cute.button("A+") do
+        if font_size.get() < 24
+          font_size.update(fn(v) v + 1 end)
         end
       end
     end
-    cute.props(header, {margins: [8, 6, 8, 6]})
 
     # Story list — reactive, re-renders when stories state changes
     story_list = cute.list(stories, fn(story, i)
@@ -251,23 +241,20 @@ cute.app("Hacker News", 1024, 640) do
     end)
 
     # Detail / action bar
-    footer = cute.hbox do
-      detail_title = cute.label("", nil, nil)
-      detail_title.set_maximum_width(400)
-      detail_meta = cute.label("", nil, nil)
-      detail_meta.set_maximum_width(300)
+    cute.hbox({margins: [12, 4, 12, 4]}) do
+      detail_title = cute.label("", {max_width: 400})
+      detail_meta = cute.label("", {max_width: 300})
       cute.spacer()
-      cute.button("Open ↗", nil) do
+      cute.button("Open ↗") do
         open_url(story_url(selected_story()))
       end
-      cute.button("Comments 💬", nil) do
+      cute.button("Comments 💬") do
         open_url(comments_url(selected_story()))
       end
     end
-    cute.props(footer, {margins: [12, 4, 12, 4]})
 
     # Status bar — auto-bound to reactive state
-    cute.label(status, nil, nil)
+    cute.label(status)
   end
 
   # -- keyboard shortcuts --
@@ -276,23 +263,16 @@ cute.app("Hacker News", 1024, 640) do
   cute.shortcut("Return", fn() open_url(story_url(selected_story())) end)
   cute.shortcut("Ctrl+Return", fn() open_url(comments_url(selected_story())) end)
   cute.shortcut("Ctrl++", fn()
-    size = font_size.get()
-    if size < 24
-      font_size.set(size + 1)
-      apply_theme()
+    if font_size.get() < 24
+      font_size.update(fn(v) v + 1 end)
     end
   end)
   cute.shortcut("Ctrl+-", fn()
-    size = font_size.get()
-    if size > 8
-      font_size.set(size - 1)
-      apply_theme()
+    if font_size.get() > 8
+      font_size.update(fn(v) v - 1 end)
     end
   end)
-  cute.shortcut("Ctrl+0", fn()
-    font_size.set(14)
-    apply_theme()
-  end)
+  cute.shortcut("Ctrl+0", fn() font_size.set(14) end)
 
   # -- initial load after window appears --
   cute.after(50, fn()

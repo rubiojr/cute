@@ -43,7 +43,33 @@ end
 
 ## Pattern: Non-Blocking Load
 
-The typical pattern for loading data without freezing the UI:
+### cute.fetch() — the easy way
+
+`cute.fetch()` combines `spawn` + `cute.ui()` into a single call. The first function runs in the background; the second receives the result on the UI thread:
+
+```ruby
+cute.fetch(fn() http.get(url) end, fn(resp)
+  lbl.set_text(resp.body)
+end)
+```
+
+A more complete example with status feedback:
+
+```ruby
+status = cute.state("Ready")
+
+load = fn(url)
+  status.set("Loading...")
+  cute.fetch(fn() http.get(url) end, fn(resp)
+    process(resp)
+    status.set("Done")
+  end)
+end
+```
+
+### Manual spawn + cute.ui
+
+For full control, use the manual pattern:
 
 ```ruby
 status = cute.state("Ready")
@@ -80,29 +106,29 @@ You only need `cute.ui` when updating widgets from inside a `spawn` block.
 
 ## Example: Hacker News Reader
 
-The HN example fetches 30 stories concurrently, then updates the list on the main thread:
+The HN example uses `cute.fetch()` with reactive state — stories are fetched concurrently in the background, then a reactive `cute.list()` re-renders automatically when the state updates:
 
 ```ruby
-load = fn(feed)
-  status.set("Loading...")
-  story_list.clear()
+stories = cute.state([])
+status = cute.state("Starting...")
 
-  spawn
-    result = fetch_stories(feed)
-    cute.ui do
-      stories = result
-      i = 0
-      for story in stories
-        story_list.add_item(story_line(story, i))
-        i += 1
-      end
-      status.set("#{len(stories)} stories")
-    end
-  end
+load = fn(feed)
+  status.set("Loading #{feed} stories...")
+  stories.set([])
+
+  cute.fetch(fn() fetch_stories(feed) end, fn(result)
+    stories.set(result)
+    status.set("#{len(result)} #{feed} stories")
+  end)
 end
+
+# The list re-renders automatically when stories changes
+cute.list(stories, fn(story, i)
+  story_line(story, i)
+end, fn(row) handle_selection(row) end)
 ```
 
-The UI shows "Loading..." immediately, stays responsive while stories are fetched in parallel via `spawn`, and updates the list when results arrive.
+The UI shows "Loading..." immediately, stays responsive while stories are fetched in parallel, and the list re-renders when results arrive — no manual `clear()` / `add_item()` loop needed.
 
 ---
 Next: [API Reference](07-api-reference.md)

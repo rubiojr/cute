@@ -8,7 +8,7 @@ block API.
 ## Project Structure
 
 ```
-main.rugo              # The entire library (single file, ~470 lines)
+main.rugo              # The entire library (single file, ~810 lines)
 lib/                   # Reserved for future library code
 examples/
   counter/main.rugo    # Minimal counter demo
@@ -116,6 +116,8 @@ Rugo is dynamically typed. Use hashes as ad-hoc objects:
 s = {__val__: initial, __observers__: []}
 s["get"] = fn() s["__val__"] end
 s["set"] = fn(v) ... end
+s["update"] = fn(f) s.set(f(s.get())) end
+s["on"] = fn(callback) ... end
 ```
 
 - Hash keys use Ruby-style symbols: `{stack: [], win: nil}`.
@@ -171,6 +173,8 @@ def quit()
 ### String Handling
 
 - Use string interpolation: `"Count: #{v} times"`.
+- **No nested interpolation** -- `"#{len("#{v}")}"` causes a parse error.
+  Use an intermediate variable instead.
 - Use heredoc syntax for multi-line strings (e.g., CSS):
 
 ```ruby
@@ -179,10 +183,49 @@ css = <<~'CSS'
 CSS
 ```
 
+### Language Gotchas
+
+- **`if/else/end` is not an expression in lambdas.** The return value of a
+  lambda is its last expression, but `if/else/end` does not propagate
+  branch values. Use an explicit variable:
+
+```ruby
+# ✗ WRONG -- returns the condition result, not the branch value
+fn(v)
+  if v == "dark"
+    dark_css()
+  else
+    light_css()
+  end
+end
+
+# ✓ CORRECT -- explicit variable
+fn(v)
+  result = light_css()
+  if v == "dark"
+    result = dark_css()
+  end
+  result
+end
+```
+
+- **Default parameters** are supported but must come after all required
+  params. `def foo(a = nil, b)` is invalid because required `b` follows
+  default `a`.  Use arg-overloading when the trailing argument is a block:
+  `def vbox(arg1 = nil, arg2 = nil)`.
+
 ### Threading
 
 - Long-running operations (network, I/O) go in `spawn` blocks.
-- UI updates from background threads must use `cute.ui()`:
+- Prefer `cute.fetch()` for simple background-work-then-update-UI patterns:
+
+```ruby
+cute.fetch(fn() http.get(url) end, fn(data)
+  label.set_text(data.body)
+end)
+```
+
+- For full control, use `spawn` + `cute.ui()`:
 
 ```ruby
 spawn

@@ -1,7 +1,7 @@
 # Cute Counter — a minimal desktop app in Rugo
 #
 # Build and run:
-#   cd examples/cute_counter
+#   cd examples/counter
 #   rugo build main.rugo -o counter && ./counter
 
 require "./../../" as "cute"
@@ -10,17 +10,17 @@ cute.app("Counter", 400, 300) do
   count = cute.state(0)
 
   cute.vbox do
-    cute.label(count, fn(v) "Clicked: #{v} times" end, nil)
+    cute.label(count, fn(v) "Clicked: #{v} times" end)
 
-    cute.button("Click Me", nil) do
-      count.set(count.get() + 1)
+    cute.button("Click Me") do
+      count.update(fn(v) v + 1 end)
     end
 
     cute.hbox do
-      cute.button("Reset", nil) do
+      cute.button("Reset") do
         count.set(0)
       end
-      cute.button("Quit", nil) do
+      cute.button("Quit") do
         cute.quit()
       end
     end
