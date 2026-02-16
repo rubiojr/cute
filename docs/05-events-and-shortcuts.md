@@ -90,6 +90,35 @@ end)
 t.stop()
 ```
 
+## Resize Detection
+
+Qt's virtual method overrides (like `OnResizeEvent`) are not available in the Rugo bindings -- only signal connections are exposed. Cute provides a polling-based helper that fires a callback when a widget's size changes:
+
+```ruby
+cute.on_resize(cute.window(), fn(w, h)
+  puts "Window is now #{w}x#{h}"
+end)
+```
+
+The default poll interval is 200 ms. You can customize it:
+
+```ruby
+# Check every 500 ms instead
+cute.on_resize(cute.window(), fn(w, h)
+  reflow(w)
+end, 500)
+```
+
+`on_resize` returns the underlying `QTimer` handle, so you can stop polling when no longer needed:
+
+```ruby
+t = cute.on_resize(widget, fn(w, h) relayout(w, h) end)
+# later:
+t.stop()
+```
+
+This is useful for responsive layouts that need to reflow content based on available width -- see [Layout Manipulation](08-layout-manipulation.md) for the `flow` helper that builds on this.
+
 ## Dialogs
 
 ### Alert

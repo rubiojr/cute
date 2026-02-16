@@ -86,6 +86,27 @@ Inserts a stretch spacer that pushes subsequent widgets to the end of the layout
 
 Inserts a horizontal separator line. Returns `QFrame` handle.
 
+### cute.container(props = nil, block)
+
+A `QWidget` wrapper that holds an inner vertical layout. Props are split: `spacing` and `margins` go to the inner layout, everything else (`css`, `width`, `height`, etc.) goes to the widget. Returns the `QWidget` handle.
+
+```ruby
+cute.container({css: "background: #1e1e2e;", spacing: 8}) do
+  cute.label("Inside a container")
+  cute.button("Click me")
+end
+```
+
+### cute.new_hbox(props = nil)
+
+Creates a free-standing `QHBoxLayout` that is **not** added to the current layout context. Use with `layout.add_layout()` or as a row in `cute.flow`.
+
+```ruby
+row = cute.new_hbox({spacing: 12})
+cute.add_widget(row, card1)
+cute.add_widget(row, card2)
+```
+
 ---
 
 ## Widgets
@@ -184,6 +205,94 @@ end)
 # Re-renders automatically:
 items.set(["X", "Y", "Z"])
 ```
+
+---
+
+## More Widgets
+
+### cute.image(props = nil)
+
+Displays a `QLabel` configured as an image placeholder. Set the pixmap later via `label.set_pixmap(pixmap)`. Returns the `QLabel` handle.
+
+```ruby
+img = cute.image({width: 200, height: 200})
+# Later, after loading:
+img.set_pixmap(pixmap)
+```
+
+### cute.load_pixmap(data)
+
+Converts raw image bytes (e.g., from `http.get().body_bytes`) into a `QPixmap`. Returns `nil` if the data cannot be decoded.
+
+```ruby
+resp = http.get("https://picsum.photos/200/200")
+pix = cute.load_pixmap(resp.body_bytes)
+if pix != nil
+  img.set_pixmap(pix)
+end
+```
+
+### cute.text_area(text = "", props = nil)
+
+Multi-line read-only text area. Returns `QPlainTextEdit` with editing disabled.
+
+```ruby
+cute.text_area("Long text here...", {min_height: 200})
+```
+
+### cute.progress(props = nil)
+
+Indeterminate progress bar (range 0..0). Apply props like `min_width` or `css`. Returns `QProgressBar`.
+
+```ruby
+bar = cute.progress({min_width: 200})
+# To show determinate progress, set range and value on the handle:
+# bar.set_range(0, 100); bar.set_value(50)
+```
+
+### cute.slider(min, max, arg1 = nil, arg2 = nil)
+
+Horizontal slider. `arg1` can be a props hash or a change callback; `arg2` is the callback if `arg1` is props. Returns `QSlider`.
+
+```ruby
+cute.slider(0, 100, fn(val)
+  puts "Value: #{val}"
+end)
+
+cute.slider(10, 50, {width: 200}, fn(val)
+  volume.set(val)
+end)
+```
+
+### cute.group(title, props = nil, block)
+
+Group box with a title and inner vertical layout. Returns the `QGroupBox` handle.
+
+```ruby
+cute.group("Settings") do
+  cute.checkbox("Enable notifications")
+  cute.checkbox("Dark mode")
+end
+```
+
+### cute.tabs(props = nil, block)
+
+Tabbed widget container. Use `cute.tab` inside the block to add pages. Returns `QTabWidget`.
+
+```ruby
+cute.tabs do
+  cute.tab("General") do
+    cute.label("General settings")
+  end
+  cute.tab("Advanced") do
+    cute.label("Advanced settings")
+  end
+end
+```
+
+### cute.tab(title, props = nil, block)
+
+A single tab page inside `cute.tabs`. Creates a `QWidget` with a vertical layout and adds it as a tab. Returns the page `QWidget`.
 
 ---
 
@@ -290,6 +399,78 @@ Single-shot timer. Fires `callback` once after `ms` milliseconds. Returns `QTime
 ### cute.timer(ms, callback)
 
 Repeating timer. Fires `callback` every `ms` milliseconds. Call `.stop()` on the returned handle to cancel.
+
+### cute.on_resize(widget, callback, interval_ms = 200)
+
+Polls `widget` for size changes every `interval_ms` milliseconds. Calls `callback(width, height)` when the size differs from the previous check. Returns the `QTimer` handle (`.stop()` to cancel).
+
+```ruby
+cute.on_resize(cute.window(), fn(w, h)
+  cols = w / 280
+  reflow(cols)
+end)
+```
+
+---
+
+## Dynamic Layout
+
+### cute.add_to(layout, block)
+
+Pushes `layout` onto the context stack and runs `block`. Any `cute.*` widget calls inside the block are auto-parented to this layout. Use this to add widgets to a layout after initial construction.
+
+```ruby
+cute.add_to(card_layout) do
+  cute.label("Added later")
+end
+```
+
+### cute.detached(layout, block)
+
+Builds a widget tree via the Cute DSL, then detaches the result from the layout and returns it as a hidden `QWidget`. The widget can later be placed with `cute.add_widget` or `cute.flow`.
+
+```ruby
+card = cute.detached(grid) do
+  cute.container({css: "background: #333;"}) do
+    cute.label("Hello")
+  end
+end
+```
+
+### cute.clear_layout(layout)
+
+Removes all items from a layout back-to-front. Child widgets are **not** destroyed -- they can be re-added. Spacer and stretch items are discarded.
+
+```ruby
+cute.clear_layout(grid)
+```
+
+### cute.add_widget(layout, widget)
+
+Appends an existing widget to a layout and calls `.show()` on it.
+
+```ruby
+cute.add_widget(row, card)
+```
+
+### cute.add_stretch(layout)
+
+Appends an expanding spacer to a layout.
+
+### cute.flow(layout, items, cols, props = nil)
+
+Arranges an array of widgets into a grid inside a vertical layout. Clears the layout first, then creates `hbox` rows of `cols` columns. Each row gets a trailing stretch for left-alignment.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `layout` | QVBoxLayout | The container layout to fill |
+| `items` | array | Widgets to arrange |
+| `cols` | int | Number of columns per row |
+| `props` | hash | Optional -- passed to each row's hbox (e.g., `{spacing: 12}`) |
+
+```ruby
+cute.flow(grid, cards, 3, {spacing: 12})
+```
 
 ---
 

@@ -1,0 +1,240 @@
+# Endless Image Gallery -- built with Cute
+#
+# An infinite-scroll grid of photos from Lorem Picsum.
+# Thumbnails load in the background and fill in as they arrive.
+# Scroll to the bottom to automatically load the next page,
+# or click the "Load More" button.
+#
+# Build and run:
+#   cd examples/gallery
+#   rugo build main.rugo -o gallery && ./gallery
+#
+# Prerequisites:
+#   - Qt6 dev libs (apt install qt6-base-dev)
+#   - Go 1.22+
+#   - Internet connection (images fetched from picsum.photos)
+
+require "./../../" as cute
+use "http"
+use "json"
+
+# -- Constants ----------------------------------------------------------------
+
+THUMB_W   = 250
+THUMB_H   = 170
+CARD_W    = THUMB_W + 20
+GAP       = 12
+PAGE_SIZE = 12
+MIN_COLS  = 1
+
+# Ensure spawn runtime is initialized.
+__boot = spawn nil
+
+# -- API helpers --------------------------------------------------------------
+
+# Fetch a page of photo metadata from Lorem Picsum.
+# Returns an array of hashes with id, author, width, height, url, etc.
+def fetch_page(page_num)
+  url = "https://picsum.photos/v2/list?page=#{page_num}&limit=#{PAGE_SIZE}"
+  resp = http.get(url)
+  return json.parse(resp.body)
+end
+
+# Download a thumbnail and display it on a QLabel.
+# Runs the HTTP fetch in a background thread, then updates the label
+# on the UI thread.
+#
+#   lbl      -- image widget returned by cute.image()
+#   photo_id -- Picsum photo ID string
+def load_thumb(lbl, photo_id)
+  w = "#{THUMB_W}"
+  h = "#{THUMB_H}"
+  url = "https://picsum.photos/id/#{photo_id}/#{w}/#{h}"
+  cute.fetch(fn() http.get(url) end, fn(resp)
+    pm = cute.load_pixmap(resp.body)
+    lbl.set_pixmap(pm)
+  end)
+end
+
+# -- App ----------------------------------------------------------------------
+
+cute.app("Image Gallery", 880, 660) do
+  css = <<~'CSS'
+    QWidget {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: sans-serif;
+    }
+    QScrollArea {
+      border: none;
+      background: #1e1e2e;
+    }
+    QLabel#title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #cdd6f4;
+    }
+    QLabel#status {
+      font-size: 11px;
+      color: #6c7086;
+    }
+    QPushButton#load-more {
+      background: #313244;
+      color: #cdd6f4;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    QPushButton#load-more:hover {
+      background: #45475a;
+    }
+  CSS
+  cute.stylesheet(css)
+
+  page        = cute.state(1)
+  status      = cute.state("Loading...")
+  loading     = cute.state(false)
+  grid        = nil
+  scroll_area = nil
+
+  CARD_CSS = "background: #313244; border-radius: 10px;"
+  IMG_CSS  = "background: #45475a; border-radius: 6px; color: #585b70;"
+
+  # Array of all card widgets -- used by rebuild_grid to re-flow.
+  cards       = []
+  cur_cols    = 3
+  grid_width  = 880
+
+  # -- Grid rebuilder ---------------------------------------------------------
+
+  # Compute the number of columns that fit in the given width.
+  calc_cols = fn(w)
+    cols = w / (CARD_W + GAP)
+    if cols < MIN_COLS
+      cols = MIN_COLS
+    end
+    cols
+  end
+
+  # Clear the grid layout and re-add all card widgets in rows
+  # of the given column count.
+  rebuild_grid = fn(cols)
+    cute.flow(grid, cards, cols, {spacing: GAP})
+  end
+
+  # -- Card builder -----------------------------------------------------------
+
+  # Create a single image card widget (detached from any layout).
+  # The card is appended to the cards array.
+  #
+  #   item -- Picsum photo hash with .id and .author
+  make_card = fn(item)
+    card = cute.detached(grid) do
+      cute.container({width: CARD_W, spacing: 6, margins: [10, 10, 10, 8], css: CARD_CSS}) do
+        img = cute.image({width: THUMB_W, height: THUMB_H, css: IMG_CSS, placeholder: "Loading..."})
+        cute.label(item.author, {css: "color: #a6adc8; font-size: 11px;"})
+        load_thumb(img, item.id)
+      end
+    end
+    cards = append(cards, card)
+  end
+
+  # -- Page loader ------------------------------------------------------------
+
+  # Load a page of photos and append image cards to the grid.
+  load_page = fn(page_num)
+    if loading.get() == false
+      loading.set(true)
+      pg = "#{page_num}"
+      status.set("Loading page #{pg}...")
+
+      cute.fetch(fn() fetch_page(page_num) end, fn(photos)
+        if photos != nil && len(photos) > 0
+          for photo in photos
+            make_card(photo)
+          end
+          cur_cols = calc_cols(grid_width)
+          rebuild_grid(cur_cols)
+
+          count = "#{len(photos)}"
+          status.set("Page #{pg} -- #{count} images loaded")
+        else
+          status.set("No more images.")
+        end
+        loading.set(false)
+      end)
+    end
+  end
+
+  # -- Layout -----------------------------------------------------------------
+
+  cute.vbox({spacing: 0, margins: [0, 0, 0, 0]}) do
+    # Header
+    cute.hbox({margins: [16, 10, 16, 6], spacing: 8}) do
+      cute.label("Image Gallery", {id: "title"})
+      cute.spacer()
+      cute.label(status, nil, {id: "status"})
+    end
+
+    cute.separator()
+
+    # Scrollable image grid
+    scroll_area = cute.scroll do
+      grid = cute.vbox({spacing: GAP, margins: [16, 12, 16, 12]}) do
+      end
+    end
+
+    # Re-flow the grid when the scroll area is resized.
+    cute.on_resize(scroll_area, fn(w, h)
+      new_cols = calc_cols(w - 32)
+      if new_cols != cur_cols
+        cur_cols = new_cols
+        grid_width = w - 32
+        rebuild_grid(cur_cols)
+      end
+    end)
+
+    # Footer with manual load button
+    cute.hbox({margins: [16, 8, 16, 10]}) do
+      cute.spacer()
+      cute.button("Load More", {id: "load-more"}) do
+        if loading.get() == false
+          page.update(fn(v) v + 1 end)
+          load_page(page.get())
+        end
+      end
+      cute.spacer()
+    end
+  end
+
+  # -- Endless scroll detection -----------------------------------------------
+
+  # Poll the vertical scroll bar; auto-load when within 60px of the bottom
+  # or when content doesn't fill the viewport (max_val == 0 after resize).
+  vbar = scroll_area.vertical_scroll_bar()
+  cute.timer(250, fn()
+    max_val = vbar.maximum()
+    needs_more = false
+    if max_val > 0 && vbar.value() >= max_val - 60
+      needs_more = true
+    end
+    if max_val == 0 && len(cards) > 0
+      needs_more = true
+    end
+    if needs_more && loading.get() == false
+      page.update(fn(v) v + 1 end)
+      load_page(page.get())
+    end
+  end)
+
+  # -- Keyboard shortcuts -----------------------------------------------------
+
+  cute.shortcut("Ctrl+Q", fn() cute.quit() end)
+
+  # -- Initial load -----------------------------------------------------------
+
+  cute.after(100, fn()
+    load_page(1)
+  end)
+end

@@ -225,6 +225,104 @@ cute.vbox do
 end
 ```
 
+### container
+
+A styled wrapper widget with a vertical layout inside. Children created in the `do...end` block are stacked top-to-bottom. Layout props (`spacing`, `margins`) go to the inner layout; all other props (`css`, `width`, etc.) go to the widget itself.
+
+```ruby
+cute.container({css: "background: #333; border-radius: 8px;", spacing: 6, margins: [10, 10, 10, 8]}) do
+  cute.label("Card Title", {css: "font-weight: bold;"})
+  cute.label("Some description text")
+  cute.button("Action") do
+    puts "clicked"
+  end
+end
+```
+
+### image / load_pixmap
+
+`image` creates a QLabel sized for displaying images. Use the `placeholder` prop to show text while loading. `load_pixmap` creates a QPixmap from raw bytes (PNG, JPEG, etc.).
+
+```ruby
+img = cute.image({width: 200, height: 150, placeholder: "Loading..."})
+
+# Later, e.g. inside a fetch callback:
+cute.fetch(fn() http.get(url) end, fn(resp)
+  pm = cute.load_pixmap(resp.body)
+  img.set_pixmap(pm)
+end)
+```
+
+### text_area
+
+Multi-line text editor:
+
+```ruby
+editor = cute.text_area("Initial text", {min_height: 200})
+
+# Read the content later:
+content = editor.to_plain_text()
+```
+
+### progress
+
+Progress bar. Set value with `.set_value(n)`, range with `.set_range(min, max)`:
+
+```ruby
+bar = cute.progress({min_width: 200})
+bar.set_range(0, 100)
+bar.set_value(42)
+```
+
+### slider
+
+Horizontal slider with min/max bounds and an optional change callback:
+
+```ruby
+cute.slider(0, 100, fn(val)
+  puts "Value: #{val}"
+end)
+
+# With inline props:
+cute.slider(0, 100, {width: 200}, fn(val)
+  volume.set(val)
+end)
+```
+
+### group
+
+Titled group box. Children in the `do...end` block are laid out vertically inside the border:
+
+```ruby
+cute.group("Settings") do
+  cute.checkbox("Dark mode") do |s|
+    toggle_theme(s)
+  end
+  cute.slider(8, 24, fn(v)
+    set_font_size(v)
+  end)
+end
+```
+
+### tabs / tab
+
+Tabbed interface. Use `cute.tab` inside a `cute.tabs` block to create pages:
+
+```ruby
+cute.tabs do
+  cute.tab("General") do
+    cute.label("General settings here")
+    cute.checkbox("Enable feature") do |s| ... end
+  end
+  cute.tab("Advanced") do
+    cute.label("Advanced settings here")
+    cute.slider(0, 100, fn(v) ... end)
+  end
+end
+```
+
+`cute.tab` is only valid inside a `cute.tabs` block.
+
 ## Components
 
 Extract reusable UI subtrees as regular Rugo functions:
