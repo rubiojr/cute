@@ -1,0 +1,38 @@
+# Combo box widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# Dropdown combo box. Returns QComboBox handle.
+#
+#   combo(["A", "B", "C"], fn(text) ... end)
+#   combo(["A", "B", "C"], {width: 120}, fn(text) ... end)
+#
+# items is an array of strings.
+# on_change receives the selected text when selection changes.
+def combo(items, arg1 = nil, arg2 = nil)
+  p = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+    if on_change == nil
+      on_change = arg2
+    end
+  end
+  cb = qt6.new_qcombo_box2()
+  # Use QStyledItemDelegate so stylesheets apply to popup items.
+  delegate = qt6.new_qstyled_item_delegate2(cb)
+  cb.set_item_delegate(delegate)
+  for item in items
+    cb.add_item(item)
+  end
+  if on_change != nil
+    cb.on_current_text_changed(on_change)
+  end
+  _props.apply(cb, p)
+  _ctx.add(cb)
+  return cb
+end

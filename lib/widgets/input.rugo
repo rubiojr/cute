@@ -1,0 +1,47 @@
+# Text input widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# Text input field. Returns QLineEdit handle.
+#
+#   input("Search...")
+#   input("Search...", {width: 200})
+#   input("Name", {state: name_state})   -- two-way binding
+#
+# When a state is passed via the state: key, the input text and
+# state are kept in sync bidirectionally.
+def input(placeholder = "", p = nil)
+  inp = qt6.new_qline_edit2()
+  if placeholder != nil
+    inp.set_placeholder_text(placeholder)
+  end
+
+  # Two-way state binding
+  if p != nil && p["state"] != nil
+    bound = p["state"]
+    initial = bound.get()
+    if initial != nil && initial != ""
+      inp.set_text("#{initial}")
+    end
+    __syncing = {v: false}
+    inp.on_text_changed(fn(text)
+      if __syncing["v"] == false
+        __syncing["v"] = true
+        bound.set(text)
+        __syncing["v"] = false
+      end
+    end)
+    bound.on(fn(v)
+      if __syncing["v"] == false
+        __syncing["v"] = true
+        inp.set_text("#{v}")
+        __syncing["v"] = false
+      end
+    end)
+  end
+
+  _props.apply(inp, p)
+  _ctx.add(inp)
+  return inp
+end

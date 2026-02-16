@@ -1,0 +1,29 @@
+# Slider widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# Horizontal slider. Returns QSlider handle.
+#
+#   slider(0, 100, fn(val) puts val end)
+#   slider(0, 100, {width: 200}, fn(val) ... end)
+def slider(min_val, max_val, arg1 = nil, arg2 = nil)
+  p = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+  end
+  s = qt6.new_qslider2()
+  s.set_orientation(1)
+  s.set_minimum(min_val)
+  s.set_maximum(max_val)
+  if on_change != nil
+    s.on_value_changed(on_change)
+  end
+  _props.apply(s, p)
+  _ctx.add(s)
+  return s
+end

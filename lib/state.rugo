@@ -1,0 +1,97 @@
+# Reactive state primitives for Cute
+#
+# Provides state containers, computed values, and property bindings
+# that drive Cute's reactive UI updates.
+
+# Returns true if obj is a state container created by state().
+def is_state(obj)
+  if type_of(obj) != "Hash"
+    return false
+  end
+  if obj["__observers__"] != nil
+    return true
+  end
+  return false
+end
+
+# Creates a reactive state container.
+#
+# Returns a hash with:
+#   .get()         -- returns the current value
+#   .set(new_val)  -- updates the value and notifies observers
+#   .update(fn)    -- transform current value: count.update(fn(v) v + 1 end)
+#   .on(fn(val))   -- registers a callback for value changes
+def state(initial)
+  s = {__val__: initial, __observers__: []}
+  s["get"] = fn() s["__val__"] end
+  s["set"] = fn(v)
+    s["__val__"] = v
+    for obs in s["__observers__"]
+      obs(v)
+    end
+  end
+  s["update"] = fn(f)
+    s.set(f(s.get()))
+  end
+  s["on"] = fn(callback)
+    s["__observers__"] = append(s["__observers__"], callback)
+  end
+  return s
+end
+
+# Creates a derived state that auto-updates when the source changes.
+#
+# The transform fn maps the source value to the derived value.
+# Returns a read-only state (has .get() and .on()).
+def computed(source, transform)
+  derived = state(transform(source.get()))
+  source.on(fn(v)
+    new_val = transform(v)
+    derived.set(new_val)
+  end)
+  return derived
+end
+
+# Applies a value to a named widget property.
+#
+# Supported property names:
+#   "text"    -- set_text
+#   "visible" -- set_visible
+#   "enabled" -- set_enabled
+#   "css"     -- set_style_sheet
+#   "tooltip" -- set_tool_tip
+def _apply_binding(widget, prop, value)
+  if prop == "text"
+    widget.set_text(value)
+  end
+  if prop == "visible"
+    widget.set_visible(value)
+  end
+  if prop == "enabled"
+    widget.set_enabled(value)
+  end
+  if prop == "css"
+    widget.set_style_sheet(value)
+  end
+  if prop == "tooltip"
+    widget.set_tool_tip(value)
+  end
+end
+
+# Binds a state container to a widget property.
+#
+# Sets the initial value immediately and auto-updates on state changes.
+# The optional transform fn maps the state value before applying.
+#
+# Supported property names: "text", "visible", "enabled", "css", "tooltip"
+def bind(s, widget, prop, transform = nil)
+  apply = fn(v)
+    val = v
+    if transform != nil
+      val = transform(v)
+    end
+    _apply_binding(widget, prop, val)
+  end
+  apply(s.get())
+  s.on(apply)
+end

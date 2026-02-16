@@ -1,0 +1,16 @@
+# Progress bar widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# Progress bar. Returns QProgressBar handle.
+# Set value with .set_value(n), range with .set_range(min, max).
+#
+#   bar = progress({min_width: 200})
+#   bar.set_value(50)
+def progress(p = nil)
+  bar = qt6.new_qprogress_bar2()
+  _props.apply(bar, p)
+  _ctx.add(bar)
+  return bar
+end

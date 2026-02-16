@@ -1,0 +1,11 @@
+# Spacer widget for Cute
+
+require "../ctx" as "_ctx"
+
+# Stretch spacer -- pushes subsequent widgets to the end.
+def spacer()
+  top = _ctx.current()
+  if top != nil
+    top.add_stretch_with_stretch(1)
+  end
+end

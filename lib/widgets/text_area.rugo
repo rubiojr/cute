@@ -1,0 +1,18 @@
+# Text area widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# Multi-line text editor. Returns QPlainTextEdit handle.
+#
+#   text_area()
+#   text_area("Initial text", {min_height: 200})
+def text_area(text = "", p = nil)
+  ta = qt6.new_qplain_text_edit2()
+  if text != nil && text != ""
+    ta.set_plain_text(text)
+  end
+  _props.apply(ta, p)
+  _ctx.add(ta)
+  return ta
+end

@@ -1,0 +1,312 @@
+# Layout containers and manipulation for Cute
+#
+# Provides vbox, hbox, scroll, container, group, tabs/tab
+# layout constructors and grid/flow utilities.
+
+require "ctx" as "_ctx"
+require "props" as "_props"
+
+# Vertical box layout.
+# Widgets created inside the block stack top-to-bottom.
+#
+#   vbox do ... end
+#   vbox({spacing: 8, margins: [8, 6, 8, 6]}) do ... end
+def vbox(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  layout = nil
+  if len(_ctx.stack()) == 0
+    layout = qt6.new_qvbox_layout(_ctx.window())
+  else
+    layout = qt6.new_qvbox_layout2()
+    _ctx.current().add_layout(layout)
+  end
+  _props.apply(layout, p)
+  _ctx.push(layout)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+  return layout
+end
+
+# Horizontal box layout.
+# Widgets created inside the block stack left-to-right.
+#
+#   hbox do ... end
+#   hbox({spacing: 4, margins: [12, 4, 12, 4]}) do ... end
+def hbox(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  layout = nil
+  if len(_ctx.stack()) == 0
+    layout = qt6.new_qhbox_layout(_ctx.window())
+  else
+    layout = qt6.new_qhbox_layout2()
+    _ctx.current().add_layout(layout)
+  end
+  _props.apply(layout, p)
+  _ctx.push(layout)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+  return layout
+end
+
+# Scrollable area. Widgets created inside the block are
+# placed in a scrollable viewport. Returns QScrollArea handle.
+#
+#   scroll do ... end
+#   scroll({css: "background: #fff;"}) do ... end
+def scroll(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  area = qt6.new_qscroll_area2()
+  area.set_widget_resizable(true)
+  content = qt6.new_qwidget2()
+  inner = qt6.new_qvbox_layout(content)
+  area.set_widget(content)
+  _props.apply(area, p)
+  _ctx.add(area)
+  _ctx.push(inner)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+  return area
+end
+
+# Generic container widget with a vertical layout inside.
+# Children created in the block are laid out top-to-bottom.
+# Returns the container QWidget handle.
+#
+# Supports standard widget props plus layout props (spacing, margins)
+# which are applied to the inner layout.
+def container(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  widget = qt6.new_qwidget2()
+  layout = qt6.new_qvbox_layout(widget)
+  layout.set_contents_margins(0, 0, 0, 0)
+  if p != nil
+    if p["spacing"] != nil
+      layout.set_spacing(p["spacing"])
+    end
+    if p["margins"] != nil
+      m = p["margins"]
+      if len(m) == 4
+        layout.set_contents_margins(m[0], m[1], m[2], m[3])
+      end
+      if len(m) == 2
+        layout.set_contents_margins(m[0], m[1], m[0], m[1])
+      end
+    end
+  end
+  # Build widget-safe props, skipping layout-only keys.
+  wp = nil
+  if p != nil
+    wp = {}
+    for key in p
+      if key != "spacing" && key != "margins"
+        wp[key] = p[key]
+      end
+    end
+  end
+  _props.apply(widget, wp)
+  _ctx.add(widget)
+  _ctx.push(layout)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+  return widget
+end
+
+# Group box with a titled border. Returns QGroupBox handle.
+# Children created in the block are laid out vertically inside.
+#
+#   group("Settings") do
+#     checkbox("Dark mode") do |s| ... end
+#   end
+def group(title, arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  gb = qt6.new_qgroup_box3(title)
+  layout = qt6.new_qvbox_layout(gb)
+  _props.apply(gb, p)
+  _ctx.add(gb)
+  _ctx.push(layout)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+  return gb
+end
+
+# Tabbed container. Use with tab() inside the block.
+# Returns QTabWidget handle.
+#
+#   tabs do
+#     tab("General") do ... end
+#     tab("Advanced") do ... end
+#   end
+def tabs(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  tw = qt6.new_qtab_widget2()
+  _props.apply(tw, p)
+  _ctx.add(tw)
+  _ctx.set_tab_widget(tw)
+  if block != nil
+    block()
+  end
+  _ctx.set_tab_widget(nil)
+  return tw
+end
+
+# Single tab page inside a tabs block.
+# Children created in the block form the tab content.
+# Returns the page QWidget handle.
+def tab(title, arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  tw = _ctx.tab_widget()
+  if tw == nil
+    return nil
+  end
+  page = qt6.new_qwidget2()
+  layout = qt6.new_qvbox_layout(page)
+  _props.apply(page, p)
+  tw.add_tab(page, title)
+  _ctx.push(layout)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+  return page
+end
+
+# -- Layout manipulation ------------------------------------------------------
+
+# Temporarily push a layout onto the context stack so widget
+# calls inside the block attach to it.
+def add_to(layout, block)
+  _ctx.push(layout)
+  block()
+  _ctx.pop()
+end
+
+# Remove all items from a layout.
+# Takes each item out from back to front.
+# Child widgets are NOT destroyed -- they can be re-added later.
+def clear_layout(layout)
+  n = layout.count()
+  i = n - 1
+  while i >= 0
+    layout.take_at(i)
+    i = i - 1
+  end
+end
+
+# Add an existing widget to a layout.
+def add_widget(layout, widget)
+  layout.add_widget(widget)
+  widget.show()
+end
+
+# Add stretch (expanding spacer) to a layout.
+def add_stretch(layout)
+  layout.add_stretch()
+end
+
+# Create a free-standing horizontal box layout.
+# Unlike hbox, this is NOT added to the current layout context.
+def new_hbox(p = nil)
+  layout = qt6.new_qhbox_layout2()
+  _props.apply(layout, p)
+  return layout
+end
+
+# Build a widget tree via the Cute DSL but detach the result
+# from the given layout, returning the top-level widget.
+# The widget is hidden after detaching -- call .show() or use
+# add_widget to place it later.
+def detached(layout, block)
+  _ctx.push(layout)
+  block()
+  _ctx.pop()
+  idx = layout.count() - 1
+  li = layout.take_at(idx)
+  w = li.widget()
+  w.hide()
+  return w
+end
+
+# Arrange an array of widgets in a grid of rows inside a vbox layout.
+# Clears the layout first, then creates hbox rows of the given column
+# count. A trailing stretch is added to each row so cards stay
+# left-aligned.
+def flow(layout, items, cols, p = nil)
+  clear_layout(layout)
+  row = nil
+  col = 0
+  for item in items
+    if col == 0
+      row = new_hbox(p)
+      layout.add_layout(row)
+    end
+    add_widget(row, item)
+    col = col + 1
+    if col >= cols
+      add_stretch(row)
+      col = 0
+      row = nil
+    end
+  end
+  if row != nil
+    add_stretch(row)
+  end
+end

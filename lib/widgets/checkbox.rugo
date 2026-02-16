@@ -1,0 +1,32 @@
+# Checkbox widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# Checkbox. Returns QCheckBox handle.
+#
+#   checkbox("Dark mode") do |state| ... end
+#   checkbox("Dark mode", {css: "..."}) do |state| ... end
+#   checkbox("Dark mode", fn(state) ... end)
+#
+# on_change receives the check state as an integer (0=off, 2=on).
+def checkbox(text, arg1 = nil, arg2 = nil)
+  p = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+    if on_change == nil
+      on_change = arg2
+    end
+  end
+  cb = qt6.new_qcheck_box3(text)
+  if on_change != nil
+    cb.on_state_changed(on_change)
+  end
+  _props.apply(cb, p)
+  _ctx.add(cb)
+  return cb
+end

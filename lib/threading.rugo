@@ -1,0 +1,22 @@
+# Threading helpers for Cute
+#
+# Provides safe UI-thread dispatch and background fetch patterns
+# for updating Qt widgets from spawned goroutines.
+
+# Runs a callback on the Qt main thread and waits for completion.
+#
+# Qt widgets must only be accessed from the main thread. Use this
+# from inside a spawn block to safely update UI after background
+# work completes.
+def ui(callback)
+  _mt.wait(callback)
+end
+
+# Runs work in a background thread and dispatches the result to
+# the UI thread. Combines spawn + ui() into a single call.
+def fetch(work, on_done)
+  spawn
+    result = work()
+    _mt.wait(fn() on_done(result) end)
+  end
+end

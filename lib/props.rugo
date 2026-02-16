@@ -1,0 +1,89 @@
+# Property application for Cute widgets and layouts
+#
+# Applies a props hash to any Qt widget or layout, mapping
+# Cute property names to Qt setter calls.
+
+# Applies a props hash to a Qt widget or layout.
+#
+# Supported keys:
+#   id:         string  -- set_object_name
+#   width:      int     -- set_fixed_width
+#   height:     int     -- set_fixed_height
+#   min_width:  int     -- set_minimum_width
+#   min_height: int     -- set_minimum_height
+#   max_width:  int     -- set_maximum_width
+#   max_height: int     -- set_maximum_height
+#   visible:    bool    -- set_visible
+#   enabled:    bool    -- set_enabled
+#   tooltip:    string  -- set_tool_tip
+#   css:        string  -- set_style_sheet (per-widget)
+#   wrap:       bool    -- set_word_wrap (QLabel)
+#   align:      string  -- set_alignment ("left","center","right")
+#   margins:    array   -- set_contents_margins [l,t,r,b] or [h,v]
+#   spacing:    int     -- set_spacing (layouts only)
+def apply(widget, props)
+  if props == nil
+    return nil
+  end
+  for key in props
+    val = props[key]
+    if key == "id"
+      widget.set_object_name(val)
+    end
+    if key == "width"
+      widget.set_fixed_width(val)
+    end
+    if key == "height"
+      widget.set_fixed_height(val)
+    end
+    if key == "min_width"
+      widget.set_minimum_width(val)
+    end
+    if key == "min_height"
+      widget.set_minimum_height(val)
+    end
+    if key == "max_width"
+      widget.set_maximum_width(val)
+    end
+    if key == "max_height"
+      widget.set_maximum_height(val)
+    end
+    if key == "visible"
+      widget.set_visible(val)
+    end
+    if key == "enabled"
+      widget.set_enabled(val)
+    end
+    if key == "tooltip"
+      widget.set_tool_tip(val)
+    end
+    if key == "css"
+      widget.set_style_sheet(val)
+    end
+    if key == "wrap"
+      widget.set_word_wrap(val)
+    end
+    if key == "align"
+      if val == "left"
+        widget.set_alignment(1)
+      end
+      if val == "center"
+        widget.set_alignment(4)
+      end
+      if val == "right"
+        widget.set_alignment(2)
+      end
+    end
+    if key == "margins"
+      if len(val) == 4
+        widget.set_contents_margins(val[0], val[1], val[2], val[3])
+      end
+      if len(val) == 2
+        widget.set_contents_margins(val[0], val[1], val[0], val[1])
+      end
+    end
+    if key == "spacing"
+      widget.set_spacing(val)
+    end
+  end
+end

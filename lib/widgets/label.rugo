@@ -1,0 +1,47 @@
+# Label widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+require "../state" as "_state"
+
+# Text label. Returns QLabel handle.
+#
+# Accepts either a plain string or a state object:
+#
+#   label("Hello")
+#   label("Hello", {css: "color: red;"})
+#   label(count, fn(v) "Count: #{v}" end)
+#   label(count, fn(v) "#{v}" end, {width: 200})
+#   label(count)
+#
+# When a state is passed, the label auto-subscribes to changes.
+# The optional transform fn maps the state value to display text.
+def label(text_or_state, arg2 = nil, arg3 = nil)
+  if _state.is_state(text_or_state)
+    transform = arg2
+    p = arg3
+    initial = text_or_state.get()
+    if transform != nil
+      initial = transform(initial)
+    else
+      initial = "#{initial}"
+    end
+    lbl = qt6.new_qlabel3(initial)
+    text_or_state.on(fn(v)
+      val = v
+      if transform != nil
+        val = transform(v)
+      else
+        val = "#{v}"
+      end
+      lbl.set_text(val)
+    end)
+    _props.apply(lbl, p)
+    _ctx.add(lbl)
+    return lbl
+  end
+  lbl = qt6.new_qlabel3(text_or_state)
+  _props.apply(lbl, arg2)
+  _ctx.add(lbl)
+  return lbl
+end

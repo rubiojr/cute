@@ -1,0 +1,12 @@
+# Separator widget for Cute
+
+require "../ctx" as "_ctx"
+
+# Horizontal separator line. Returns QFrame handle.
+def separator()
+  line = qt6.new_qframe2()
+  line.set_frame_shape(4)
+  line.set_frame_shadow(48)
+  _ctx.add(line)
+  return line
+end

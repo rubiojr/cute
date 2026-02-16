@@ -1,0 +1,70 @@
+# Context management for Cute
+#
+# Manages the implicit layout stack that powers the do...end block
+# nesting pattern. Widget and layout constructors use these functions
+# to find the current parent and manage the stack.
+
+_CTX = {stack: [], win: nil, qt_app: nil}
+
+# Returns the current (topmost) layout on the stack, or nil.
+def current()
+  s = _CTX["stack"]
+  if len(s) == 0
+    return nil
+  end
+  return s[-1]
+end
+
+# Adds a widget to the current layout.
+def add(widget)
+  top = current()
+  if top != nil
+    top.add_widget(widget)
+  end
+end
+
+# Pushes a layout onto the context stack.
+def push(layout)
+  _CTX["stack"] = append(_CTX["stack"], layout)
+end
+
+# Pops the topmost layout from the stack.
+def pop()
+  s = _CTX["stack"]
+  _CTX["stack"] = s[0, len(s) - 1]
+end
+
+# Returns the layout stack array.
+def stack()
+  return _CTX["stack"]
+end
+
+# Returns the main window handle.
+def window()
+  return _CTX["win"]
+end
+
+# Sets the main window handle.
+def set_window(w)
+  _CTX["win"] = w
+end
+
+# Returns the Qt application handle.
+def qt_app()
+  return _CTX["qt_app"]
+end
+
+# Sets the Qt application handle.
+def set_qt_app(a)
+  _CTX["qt_app"] = a
+end
+
+# Returns the current tab widget (used during tabs/tab construction).
+def tab_widget()
+  return _CTX["__tab_widget__"]
+end
+
+# Sets the current tab widget.
+def set_tab_widget(tw)
+  _CTX["__tab_widget__"] = tw
+end

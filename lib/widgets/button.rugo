@@ -1,0 +1,33 @@
+# Button widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# Push button. Returns QPushButton handle.
+#
+#   button("Quit") do cute.quit() end
+#   button("Submit", {css: "color: green;"}) do ... end
+#   button("Submit", fn() ... end)
+#
+# The do...end block (or explicit fn) is the click handler.
+# The optional props hash is applied to the button widget.
+def button(text, arg1 = nil, arg2 = nil)
+  p = nil
+  on_click = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_click = arg2
+  else
+    on_click = arg1
+    if on_click == nil
+      on_click = arg2
+    end
+  end
+  btn = qt6.new_qpush_button3(text)
+  if on_click != nil
+    btn.on_clicked(on_click)
+  end
+  _props.apply(btn, p)
+  _ctx.add(btn)
+  return btn
+end

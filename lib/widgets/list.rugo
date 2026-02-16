@@ -1,0 +1,47 @@
+# List widgets for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# List widget for scrollable lists. Returns QListWidget handle.
+# Use .add_item(text) to add items, .clear() to clear.
+def list_widget(p = nil)
+  lw = qt6.new_qlist_widget2()
+  _props.apply(lw, p)
+  _ctx.add(lw)
+  return lw
+end
+
+# Reactive list bound to a state container.
+#
+# Automatically clears and re-renders when the state changes.
+# render_fn receives (item, index) and returns a display string.
+# on_select receives the row index when the selection changes.
+#
+# Example:
+#   items = state(["Apple", "Banana", "Cherry"])
+#   list(items, fn(item, i) "#{i + 1}. #{item}" end, fn(row)
+#     puts "Selected row #{row}"
+#   end)
+def list(items_state, render_fn, on_select = nil)
+  lw = qt6.new_qlist_widget2()
+
+  populate = fn(items)
+    lw.clear()
+    i = 0
+    for item in items
+      lw.add_item(render_fn(item, i))
+      i += 1
+    end
+  end
+
+  populate(items_state.get())
+  items_state.on(populate)
+
+  if on_select != nil
+    lw.on_current_row_changed(on_select)
+  end
+
+  _ctx.add(lw)
+  return lw
+end

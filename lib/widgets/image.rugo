@@ -1,0 +1,28 @@
+# Image widget for Cute
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+# Image display label. Returns QLabel handle.
+# The returned label can show a pixmap via .set_pixmap(pixmap).
+# Use load_pixmap(data) to create a pixmap from raw bytes.
+#
+# Supported props (in addition to standard widget props):
+#   placeholder: string -- text shown before image loads
+def image(p = nil)
+  img = qt6.new_qlabel2()
+  img.set_alignment(4)
+  if p != nil && p["placeholder"] != nil
+    img.set_text(p["placeholder"])
+  end
+  _props.apply(img, p)
+  _ctx.add(img)
+  return img
+end
+
+# Create a QPixmap from raw image bytes (PNG, JPEG, etc.).
+def load_pixmap(data)
+  pm = qt6.new_qpixmap()
+  pm.load_from_data_with_data(data)
+  return pm
+end

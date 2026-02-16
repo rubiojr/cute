@@ -1,0 +1,83 @@
+# Event helpers for Cute
+#
+# Keyboard shortcuts, timers, and interaction detection.
+
+require "ctx" as "_ctx"
+
+# Keyboard shortcut from a Qt key string (e.g. "Ctrl+Q", "Ctrl+S").
+def shortcut(key, callback)
+  seq = qt6.new_qkey_sequence2(key)
+  sc = qt6.new_qshortcut2(seq, _ctx.window())
+  sc.on_activated(callback)
+  return sc
+end
+
+# Single-shot timer. Fires callback once after ms milliseconds.
+def after(ms, callback)
+  t = qt6.new_qtimer()
+  t.set_single_shot(true)
+  t.on_timeout(callback)
+  t.start(ms)
+  return t
+end
+
+# Repeating timer. Fires callback every ms milliseconds.
+# Call .stop() on the returned handle to cancel.
+def timer(ms, callback)
+  t = qt6.new_qtimer()
+  t.on_timeout(callback)
+  t.start(ms)
+  return t
+end
+
+# Watch a widget for size changes.
+# Polls the widget dimensions every interval_ms (default 200ms)
+# and calls fn(width, height) when the size differs.
+# Returns the timer handle (.stop() to cancel).
+def on_resize(widget, callback, interval_ms = 200)
+  last_w = widget.width()
+  last_h = widget.height()
+  t = timer(interval_ms, fn()
+    w = widget.width()
+    h = widget.height()
+    if w != last_w || h != last_h
+      last_w = w
+      last_h = h
+      callback(w, h)
+    end
+  end)
+  return t
+end
+
+# Detect double-click on any widget.
+# Creates a transparent QPushButton overlay that covers the widget.
+# Two clicks within 400ms trigger the callback. The overlay shows
+# a pointing-hand cursor for visual feedback.
+# Returns the overlay button handle.
+def on_double_click(widget, callback)
+  btn = qt6.new_qpush_button(widget)
+  btn.set_style_sheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.05); }")
+  btn.set_cursor(qt6.new_qcursor2(13))
+  btn.set_geometry(0, 0, widget.width(), widget.height())
+  btn.raise()
+
+  click_pending = false
+  btn.on_clicked(fn()
+    if click_pending
+      click_pending = false
+      callback()
+    else
+      click_pending = true
+      after(400, fn()
+        click_pending = false
+      end)
+    end
+  end)
+
+  on_resize(widget, fn(w, h)
+    btn.set_geometry(0, 0, w, h)
+    btn.raise()
+  end)
+
+  return btn
+end

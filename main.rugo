@@ -1,4 +1,4 @@
-# Cute — A declarative UI toolkit for Rugo
+# Cute -- A declarative UI toolkit for Rugo
 #
 # Build native desktop apps with do...end blocks for nesting,
 # reactive state bindings, and zero ceremony.
@@ -30,205 +30,45 @@
 
 require "github.com/mappu/miqt/qt6@v0.13.0"
 require "github.com/mappu/miqt/qt6/mainthread@v0.13.0" as "_mt"
+require "lib/ctx" as "_ctx"
+require "lib/state" as "_state"
+require "lib/props" as "_props"
+require "lib/style" as "_style"
+require "lib/layouts" as "_layouts"
+require "lib/events" as "_events"
+require "lib/threading" as "_threading"
+require "lib/widgets/label" as "_label"
+require "lib/widgets/button" as "_button"
+require "lib/widgets/input" as "_input"
+require "lib/widgets/checkbox" as "_checkbox"
+require "lib/widgets/spacer" as "_spacer"
+require "lib/widgets/separator" as "_separator"
+require "lib/widgets/combo" as "_combo"
+require "lib/widgets/list" as "_list"
+require "lib/widgets/image" as "_image"
+require "lib/widgets/text_area" as "_text_area"
+require "lib/widgets/progress" as "_progress"
+require "lib/widgets/slider" as "_slider"
 
-# Module-level context — tracks layout stack, window, and Qt app.
-# Functions read and mutate this hash's contents (not the binding itself).
-_CTX = {stack: [], win: nil, qt_app: nil}
-
-# -- Private helpers ----------------------------------------------------------
-
-def _current()
-  s = _CTX["stack"]
-  if len(s) == 0
-    return nil
-  end
-  return s[-1]
-end
-
-def _add(widget)
-  top = _current()
-  if top != nil
-    top.add_widget(widget)
-  end
-end
-
-def _push(layout)
-  _CTX["stack"] = append(_CTX["stack"], layout)
-end
-
-def _pop()
-  s = _CTX["stack"]
-  _CTX["stack"] = s[0, len(s) - 1]
-end
-
-# Returns true if obj is a state container created by cute.state().
-def _is_state(obj)
-  if type_of(obj) != "Hash"
-    return false
-  end
-  if obj["__observers__"] != nil
-    return true
-  end
-  return false
-end
-
-# Applies a value to a named widget property.
-#
-# Supported property names:
-#   "text"    — set_text
-#   "visible" — set_visible
-#   "enabled" — set_enabled
-#   "css"     — set_style_sheet
-#   "tooltip" — set_tool_tip
-def _apply_binding(widget, prop, value)
-  if prop == "text"
-    widget.set_text(value)
-  end
-  if prop == "visible"
-    widget.set_visible(value)
-  end
-  if prop == "enabled"
-    widget.set_enabled(value)
-  end
-  if prop == "css"
-    widget.set_style_sheet(value)
-  end
-  if prop == "tooltip"
-    widget.set_tool_tip(value)
-  end
-end
-
-# Applies a props hash to a Qt widget or layout.
-#
-# Supported keys:
-#   id:         string  — set_object_name
-#   width:      int     — set_fixed_width
-#   height:     int     — set_fixed_height
-#   min_width:  int     — set_minimum_width
-#   min_height: int     — set_minimum_height
-#   max_width:  int     — set_maximum_width
-#   max_height: int     — set_maximum_height
-#   visible:    bool    — set_visible
-#   enabled:    bool    — set_enabled
-#   tooltip:    string  — set_tool_tip
-#   css:        string  — set_style_sheet (per-widget)
-#   wrap:       bool    — set_word_wrap (QLabel)
-#   align:      string  — set_alignment ("left","center","right")
-#   margins:    array   — set_contents_margins [l,t,r,b] or [h,v]
-#   spacing:    int     — set_spacing (layouts only)
-def _apply_props(widget, props)
-  if props == nil
-    return nil
-  end
-  for key in props
-    val = props[key]
-    if key == "id"
-      widget.set_object_name(val)
-    end
-    if key == "width"
-      widget.set_fixed_width(val)
-    end
-    if key == "height"
-      widget.set_fixed_height(val)
-    end
-    if key == "min_width"
-      widget.set_minimum_width(val)
-    end
-    if key == "min_height"
-      widget.set_minimum_height(val)
-    end
-    if key == "max_width"
-      widget.set_maximum_width(val)
-    end
-    if key == "max_height"
-      widget.set_maximum_height(val)
-    end
-    if key == "visible"
-      widget.set_visible(val)
-    end
-    if key == "enabled"
-      widget.set_enabled(val)
-    end
-    if key == "tooltip"
-      widget.set_tool_tip(val)
-    end
-    if key == "css"
-      widget.set_style_sheet(val)
-    end
-    if key == "wrap"
-      widget.set_word_wrap(val)
-    end
-    if key == "align"
-      if val == "left"
-        widget.set_alignment(1)
-      end
-      if val == "center"
-        widget.set_alignment(4)
-      end
-      if val == "right"
-        widget.set_alignment(2)
-      end
-    end
-    if key == "margins"
-      if len(val) == 4
-        widget.set_contents_margins(val[0], val[1], val[2], val[3])
-      end
-      if len(val) == 2
-        widget.set_contents_margins(val[0], val[1], val[0], val[1])
-      end
-    end
-    if key == "spacing"
-      widget.set_spacing(val)
-    end
-  end
-end
-
-# -- Public API ---------------------------------------------------------------
-
-# Applies a props hash to any widget or layout. Returns the widget.
-#
-# Supported keys:
-#   id:         string  — set_object_name
-#   width:      int     — set_fixed_width
-#   height:     int     — set_fixed_height
-#   min_width:  int     — set_minimum_width
-#   min_height: int     — set_minimum_height
-#   max_width:  int     — set_maximum_width
-#   max_height: int     — set_maximum_height
-#   visible:    bool    — set_visible
-#   enabled:    bool    — set_enabled
-#   tooltip:    string  — set_tool_tip
-#   css:        string  — set_style_sheet (per-widget)
-#   wrap:       bool    — set_word_wrap (QLabel)
-#   align:      string  — set_alignment ("left","center","right")
-#   margins:    array   — set_contents_margins [l,t,r,b] or [h,v]
-#   spacing:    int     — set_spacing (layouts only)
-#
-# Example:
-#   lbl = cute.label("Hello")
-#   cute.props(lbl, {id: "title", css: cute.style({bold: true, size: 18})})
-def props(widget, p)
-  _apply_props(widget, p)
-  return widget
-end
+# -- App lifecycle ------------------------------------------------------------
 
 # Creates a Cute application window and runs the event loop.
 #
-# title  — window title
-# width  — window width in pixels
-# height — window height in pixels
-# block  — fn() building the UI tree
+# title  -- window title
+# width  -- window width in pixels
+# height -- window height in pixels
+# block  -- fn() building the UI tree
 def app(title, width, height, block)
-  _CTX["qt_app"] = qt6.new_qapplication(["rugo"])
+  _ctx.set_qt_app(qt6.new_qapplication(["rugo"]))
   fusion = qt6.qstyle_factory_create("Fusion")
   qt6.qapplication_set_style(fusion)
-  _CTX["win"] = qt6.new_qwidget2()
-  _CTX["win"].set_window_title(title)
-  _CTX["win"].resize(width, height)
+  _ctx.set_window(qt6.new_qwidget2())
+  _ctx.window().set_window_title(title)
+  _ctx.window().resize(width, height)
 
   block()
 
-  _CTX["win"].show()
+  _ctx.window().show()
   qt6.qapplication_exec()
 end
 
@@ -239,995 +79,134 @@ end
 
 # Access the raw QWidget window handle.
 def window()
-  return _CTX["win"]
-end
-
-# Vertical box layout.
-# Widgets created inside the block stack top-to-bottom.
-#
-#   cute.vbox do ... end
-#   cute.vbox({spacing: 8, margins: [8, 6, 8, 6]}) do ... end
-def vbox(arg1 = nil, arg2 = nil)
-  p = nil
-  block = nil
-  if type_of(arg1) == "Hash"
-    p = arg1
-    block = arg2
-  else
-    block = arg1
-  end
-  layout = nil
-  if len(_CTX["stack"]) == 0
-    layout = qt6.new_qvbox_layout(_CTX["win"])
-  else
-    layout = qt6.new_qvbox_layout2()
-    _current().add_layout(layout)
-  end
-  _apply_props(layout, p)
-  _push(layout)
-  if block != nil
-    block()
-  end
-  _pop()
-  return layout
-end
-
-# Horizontal box layout.
-# Widgets created inside the block stack left-to-right.
-#
-#   cute.hbox do ... end
-#   cute.hbox({spacing: 4, margins: [12, 4, 12, 4]}) do ... end
-def hbox(arg1 = nil, arg2 = nil)
-  p = nil
-  block = nil
-  if type_of(arg1) == "Hash"
-    p = arg1
-    block = arg2
-  else
-    block = arg1
-  end
-  layout = nil
-  if len(_CTX["stack"]) == 0
-    layout = qt6.new_qhbox_layout(_CTX["win"])
-  else
-    layout = qt6.new_qhbox_layout2()
-    _current().add_layout(layout)
-  end
-  _apply_props(layout, p)
-  _push(layout)
-  if block != nil
-    block()
-  end
-  _pop()
-  return layout
-end
-
-# Text label. Returns QLabel handle.
-#
-# Accepts either a plain string or a state object:
-#
-#   cute.label("Hello")
-#   cute.label("Hello", {css: "color: red;"})
-#   cute.label(count, fn(v) "Count: #{v}" end)
-#   cute.label(count, fn(v) "#{v}" end, {width: 200})
-#   cute.label(count)
-#
-# When a state is passed, the label auto-subscribes to changes.
-# The optional transform fn maps the state value to display text.
-def label(text_or_state, arg2 = nil, arg3 = nil)
-  if _is_state(text_or_state)
-    transform = arg2
-    p = arg3
-    initial = text_or_state.get()
-    if transform != nil
-      initial = transform(initial)
-    else
-      initial = "#{initial}"
-    end
-    lbl = qt6.new_qlabel3(initial)
-    text_or_state.on(fn(v)
-      val = v
-      if transform != nil
-        val = transform(v)
-      else
-        val = "#{v}"
-      end
-      lbl.set_text(val)
-    end)
-    _apply_props(lbl, p)
-    _add(lbl)
-    return lbl
-  end
-  lbl = qt6.new_qlabel3(text_or_state)
-  _apply_props(lbl, arg2)
-  _add(lbl)
-  return lbl
-end
-
-# Push button. Returns QPushButton handle.
-#
-#   cute.button("Quit") do cute.quit() end
-#   cute.button("Submit", {css: "color: green;"}) do ... end
-#   cute.button("Submit", fn() ... end)
-#
-# The do...end block (or explicit fn) is the click handler.
-# The optional props hash is applied to the button widget.
-def button(text, arg1 = nil, arg2 = nil)
-  props = nil
-  on_click = nil
-  if type_of(arg1) == "Hash"
-    props = arg1
-    on_click = arg2
-  else
-    on_click = arg1
-    if on_click == nil
-      on_click = arg2
-    end
-  end
-  btn = qt6.new_qpush_button3(text)
-  if on_click != nil
-    btn.on_clicked(on_click)
-  end
-  _apply_props(btn, props)
-  _add(btn)
-  return btn
-end
-
-# Text input field. Returns QLineEdit handle.
-#
-#   cute.input("Search...")
-#   cute.input("Search...", {width: 200})
-#   cute.input("Name", {state: name_state})   -- two-way binding
-#
-# When a state is passed via the state: key, the input text and state
-# are kept in sync bidirectionally.
-def input(placeholder = "", props = nil)
-  inp = qt6.new_qline_edit2()
-  if placeholder != nil
-    inp.set_placeholder_text(placeholder)
-  end
-
-  # Two-way state binding
-  if props != nil && props["state"] != nil
-    bound = props["state"]
-    initial = bound.get()
-    if initial != nil && initial != ""
-      inp.set_text("#{initial}")
-    end
-    __syncing = {v: false}
-    inp.on_text_changed(fn(text)
-      if __syncing["v"] == false
-        __syncing["v"] = true
-        bound.set(text)
-        __syncing["v"] = false
-      end
-    end)
-    bound.on(fn(v)
-      if __syncing["v"] == false
-        __syncing["v"] = true
-        inp.set_text("#{v}")
-        __syncing["v"] = false
-      end
-    end)
-  end
-
-  _apply_props(inp, props)
-  _add(inp)
-  return inp
-end
-
-# Checkbox. Returns QCheckBox handle.
-#
-#   cute.checkbox("Dark mode") do |state| ... end
-#   cute.checkbox("Dark mode", {css: "..."}) do |state| ... end
-#   cute.checkbox("Dark mode", fn(state) ... end)
-#
-# on_change receives the check state as an integer (0=off, 2=on).
-def checkbox(text, arg1 = nil, arg2 = nil)
-  props = nil
-  on_change = nil
-  if type_of(arg1) == "Hash"
-    props = arg1
-    on_change = arg2
-  else
-    on_change = arg1
-    if on_change == nil
-      on_change = arg2
-    end
-  end
-  cb = qt6.new_qcheck_box3(text)
-  if on_change != nil
-    cb.on_state_changed(on_change)
-  end
-  _apply_props(cb, props)
-  _add(cb)
-  return cb
-end
-
-# Stretch spacer — pushes subsequent widgets to the end.
-def spacer()
-  top = _current()
-  if top != nil
-    top.add_stretch_with_stretch(1)
-  end
-end
-
-# Horizontal separator line. Returns QFrame handle.
-def separator()
-  line = qt6.new_qframe2()
-  line.set_frame_shape(4)
-  line.set_frame_shadow(48)
-  _add(line)
-  return line
-end
-
-# Keyboard shortcut from a Qt key string (e.g. "Ctrl+Q", "Ctrl+S").
-def shortcut(key, callback)
-  seq = qt6.new_qkey_sequence2(key)
-  sc = qt6.new_qshortcut2(seq, _CTX["win"])
-  sc.on_activated(callback)
-  return sc
+  return _ctx.window()
 end
 
 # Apply a Qt stylesheet (CSS) to the entire window.
-# Accepts a string or a state — if a state, auto-updates when it changes.
-#
-# Example:
-#   cute.stylesheet("QWidget { background: #1a1a2e; }")
-#   css = cute.computed(font_size, fn(s) theme.dark(s) end)
-#   cute.stylesheet(css)   -- re-applies whenever font_size changes
+# Accepts a string or a state -- if a state, auto-updates when it changes.
 def stylesheet(css_or_state)
-  if _is_state(css_or_state)
-    _CTX["win"].set_style_sheet(css_or_state.get())
+  if _state.is_state(css_or_state)
+    _ctx.window().set_style_sheet(css_or_state.get())
     css_or_state.on(fn(v)
-      _CTX["win"].set_style_sheet(v)
+      _ctx.window().set_style_sheet(v)
     end)
   else
-    _CTX["win"].set_style_sheet(css_or_state)
+    _ctx.window().set_style_sheet(css_or_state)
   end
 end
 
 # Information dialog.
 def alert(title, message)
-  qt6.qmessage_box_information(_CTX["win"], title, message)
+  qt6.qmessage_box_information(_ctx.window(), title, message)
 end
 
 # Yes/No confirmation dialog. Returns true if Yes was clicked.
 def confirm(title, message)
-  result = qt6.qmessage_box_question(_CTX["win"], title, message)
+  result = qt6.qmessage_box_question(_ctx.window(), title, message)
   return result == 16384
 end
 
-# Scrollable area. Widgets created inside the block are
-# placed in a scrollable viewport. Returns QScrollArea handle.
-#
-#   cute.scroll do ... end
-#   cute.scroll({css: "background: #fff;"}) do ... end
-def scroll(arg1 = nil, arg2 = nil)
-  p = nil
-  block = nil
-  if type_of(arg1) == "Hash"
-    p = arg1
-    block = arg2
-  else
-    block = arg1
-  end
-  area = qt6.new_qscroll_area2()
-  area.set_widget_resizable(true)
-  content = qt6.new_qwidget2()
-  inner = qt6.new_qvbox_layout(content)
-  area.set_widget(content)
-  _apply_props(area, p)
-  _add(area)
-  _push(inner)
-  if block != nil
-    block()
-  end
-  _pop()
-  return area
-end
+# -- State --------------------------------------------------------------------
 
-# Dropdown combo box. Returns QComboBox handle.
-#
-#   cute.combo(["A", "B", "C"], fn(text) ... end)
-#   cute.combo(["A", "B", "C"], {width: 120}, fn(text) ... end)
-#
-# items is an array of strings.
-# on_change receives the selected text when selection changes.
-def combo(items, arg1 = nil, arg2 = nil)
-  props = nil
-  on_change = nil
-  if type_of(arg1) == "Hash"
-    props = arg1
-    on_change = arg2
-  else
-    on_change = arg1
-    if on_change == nil
-      on_change = arg2
-    end
-  end
-  cb = qt6.new_qcombo_box2()
-  # Use QStyledItemDelegate so stylesheets apply to popup items.
-  delegate = qt6.new_qstyled_item_delegate2(cb)
-  cb.set_item_delegate(delegate)
-  for item in items
-    cb.add_item(item)
-  end
-  if on_change != nil
-    cb.on_current_text_changed(on_change)
-  end
-  _apply_props(cb, props)
-  _add(cb)
-  return cb
-end
+def state(initial)                          _state.state(initial) end
+def computed(source, transform)             _state.computed(source, transform) end
+def bind(s, widget, prop, transform = nil)  _state.bind(s, widget, prop, transform) end
 
-# List widget for scrollable lists. Returns QListWidget handle.
-# Use .add_item(text) to add items, .clear() to clear.
-def list_widget(props = nil)
-  lw = qt6.new_qlist_widget2()
-  _apply_props(lw, props)
-  _add(lw)
-  return lw
-end
+# -- Style --------------------------------------------------------------------
 
-# Reactive list bound to a state container.
-#
-# Automatically clears and re-renders when the state changes.
-# render_fn receives (item, index) and returns a display string.
-# on_select receives the row index when the selection changes.
-#
-# Example:
-#   items = cute.state(["Apple", "Banana", "Cherry"])
-#   cute.list(items, fn(item, i) "#{i + 1}. #{item}" end, fn(row)
-#     puts "Selected row #{row}"
-#   end)
-#
-#   # without on_select:
-#   cute.list(items, fn(item, i) item end)
-#
-#   # later — list re-renders automatically:
-#   items.set(["X", "Y", "Z"])
-def list(items_state, render_fn, on_select = nil)
-  lw = qt6.new_qlist_widget2()
+def style(p)                                _style.style(p) end
 
-  populate = fn(items)
-    lw.clear()
-    i = 0
-    for item in items
-      lw.add_item(render_fn(item, i))
-      i += 1
-    end
-  end
+# -- Props --------------------------------------------------------------------
 
-  populate(items_state.get())
-  items_state.on(populate)
-
-  if on_select != nil
-    lw.on_current_row_changed(on_select)
-  end
-
-  _add(lw)
-  return lw
-end
-
-# Image display label. Returns QLabel handle.
-# The returned label can show a pixmap via .set_pixmap(pixmap).
-# Use cute.load_pixmap(data) to create a pixmap from raw bytes.
-#
-# Supported props (in addition to standard widget props):
-#   placeholder: string — text shown before image loads
-#
-# Example:
-#   img = cute.image({width: 200, height: 150, placeholder: "Loading..."})
-#   pm = cute.load_pixmap(image_bytes)
-#   img.set_pixmap(pm)
-def image(props = nil)
-  img = qt6.new_qlabel2()
-  img.set_alignment(4)
-  if props != nil && props["placeholder"] != nil
-    img.set_text(props["placeholder"])
-  end
-  _apply_props(img, props)
-  _add(img)
-  return img
-end
-
-# Create a QPixmap from raw image bytes (PNG, JPEG, etc.).
-#
-# Example:
-#   resp = http.get("https://example.com/photo.jpg")
-#   pm = cute.load_pixmap(resp.body)
-#   img.set_pixmap(pm)
-def load_pixmap(data)
-  pm = qt6.new_qpixmap()
-  pm.load_from_data_with_data(data)
-  return pm
-end
-
-# Generic container widget with a vertical layout inside.
-# Children created in the block are laid out top-to-bottom.
-# Returns the container QWidget handle.
-#
-# Supports standard widget props plus layout props (spacing, margins)
-# which are applied to the inner layout.
-#
-# Example:
-#   cute.container({css: "background: #333; border-radius: 8px;"}) do
-#     cute.label("Title")
-#     cute.button("Action") do ... end
-#   end
-def container(arg1 = nil, arg2 = nil)
-  p = nil
-  block = nil
-  if type_of(arg1) == "Hash"
-    p = arg1
-    block = arg2
-  else
-    block = arg1
-  end
-  widget = qt6.new_qwidget2()
-  layout = qt6.new_qvbox_layout(widget)
-  layout.set_contents_margins(0, 0, 0, 0)
-  if p != nil
-    if p["spacing"] != nil
-      layout.set_spacing(p["spacing"])
-    end
-    if p["margins"] != nil
-      m = p["margins"]
-      if len(m) == 4
-        layout.set_contents_margins(m[0], m[1], m[2], m[3])
-      end
-      if len(m) == 2
-        layout.set_contents_margins(m[0], m[1], m[0], m[1])
-      end
-    end
-  end
-  # Build widget-safe props, skipping layout-only keys.
-  wp = nil
-  if p != nil
-    wp = {}
-    for key in p
-      if key != "spacing" && key != "margins"
-        wp[key] = p[key]
-      end
-    end
-  end
-  _apply_props(widget, wp)
-  _add(widget)
-  _push(layout)
-  if block != nil
-    block()
-  end
-  _pop()
+# Applies a props hash to any widget or layout. Returns the widget.
+def props(widget, p)
+  _props.apply(widget, p)
   return widget
 end
 
-# Temporarily push a layout onto the context stack so cute.xxx
-# calls inside the block attach to it. Use this to add widgets
-# dynamically after the initial UI build.
-#
-# Example:
-#   grid = cute.vbox do end
-#   # later, e.g. inside a fetch callback:
-#   cute.add_to(grid) do
-#     cute.label("Dynamically added!")
-#   end
-def add_to(layout, block)
-  _push(layout)
-  block()
-  _pop()
+# -- Widgets ------------------------------------------------------------------
+
+def label(text_or_state, arg2 = nil, arg3 = nil)
+  _label.label(text_or_state, arg2, arg3)
 end
 
-# Multi-line text editor. Returns QPlainTextEdit handle.
-#
-# Example:
-#   cute.text_area()
-#   cute.text_area("Initial text", {min_height: 200})
-def text_area(text = "", props = nil)
-  ta = qt6.new_qplain_text_edit2()
-  if text != nil && text != ""
-    ta.set_plain_text(text)
-  end
-  _apply_props(ta, props)
-  _add(ta)
-  return ta
+def button(text, arg1 = nil, arg2 = nil)
+  _button.button(text, arg1, arg2)
 end
 
-# Progress bar. Returns QProgressBar handle.
-# Set value with .set_value(n), range with .set_range(min, max).
-#
-# Example:
-#   bar = cute.progress({min_width: 200})
-#   bar.set_value(50)
-def progress(props = nil)
-  bar = qt6.new_qprogress_bar2()
-  _apply_props(bar, props)
-  _add(bar)
-  return bar
+def input(placeholder = "", p = nil)        _input.input(placeholder, p) end
+def checkbox(text, arg1 = nil, arg2 = nil)  _checkbox.checkbox(text, arg1, arg2) end
+def spacer()                                _spacer.spacer() end
+def separator()                             _separator.separator() end
+
+def combo(items, arg1 = nil, arg2 = nil)
+  _combo.combo(items, arg1, arg2)
 end
 
-# Horizontal slider. Returns QSlider handle.
-#
-# Example:
-#   cute.slider(0, 100, fn(val) puts val end)
-#   cute.slider(0, 100, {width: 200}, fn(val) ... end)
+def list_widget(p = nil)                    _list.list_widget(p) end
+
+def list(items_state, render_fn, on_select = nil)
+  _list.list(items_state, render_fn, on_select)
+end
+
+def image(p = nil)                          _image.image(p) end
+def load_pixmap(data)                       _image.load_pixmap(data) end
+def text_area(text = "", p = nil)           _text_area.text_area(text, p) end
+def progress(p = nil)                       _progress.progress(p) end
+
 def slider(min_val, max_val, arg1 = nil, arg2 = nil)
-  props = nil
-  on_change = nil
-  if type_of(arg1) == "Hash"
-    props = arg1
-    on_change = arg2
-  else
-    on_change = arg1
-  end
-  s = qt6.new_qslider2()
-  s.set_orientation(1)
-  s.set_minimum(min_val)
-  s.set_maximum(max_val)
-  if on_change != nil
-    s.on_value_changed(on_change)
-  end
-  _apply_props(s, props)
-  _add(s)
-  return s
+  _slider.slider(min_val, max_val, arg1, arg2)
 end
 
-# Group box with a titled border. Returns QGroupBox handle.
-# Children created in the block are laid out vertically inside.
-#
-# Example:
-#   cute.group("Settings") do
-#     cute.checkbox("Dark mode") do |s| ... end
-#     cute.slider(8, 24, fn(v) ... end)
-#   end
+# -- Layouts ------------------------------------------------------------------
+
+def vbox(arg1 = nil, arg2 = nil)            _layouts.vbox(arg1, arg2) end
+def hbox(arg1 = nil, arg2 = nil)            _layouts.hbox(arg1, arg2) end
+
+def scroll(arg1 = nil, arg2 = nil)
+  _layouts.scroll(arg1, arg2)
+end
+
+def container(arg1 = nil, arg2 = nil)
+  _layouts.container(arg1, arg2)
+end
+
 def group(title, arg1 = nil, arg2 = nil)
-  p = nil
-  block = nil
-  if type_of(arg1) == "Hash"
-    p = arg1
-    block = arg2
-  else
-    block = arg1
-  end
-  gb = qt6.new_qgroup_box3(title)
-  layout = qt6.new_qvbox_layout(gb)
-  _apply_props(gb, p)
-  _add(gb)
-  _push(layout)
-  if block != nil
-    block()
-  end
-  _pop()
-  return gb
+  _layouts.group(title, arg1, arg2)
 end
 
-# Tabbed container. Use with cute.tab() inside the block.
-# Returns QTabWidget handle.
-#
-# Example:
-#   cute.tabs do
-#     cute.tab("General") do
-#       cute.label("General settings")
-#     end
-#     cute.tab("Advanced") do
-#       cute.label("Advanced settings")
-#     end
-#   end
-def tabs(arg1 = nil, arg2 = nil)
-  p = nil
-  block = nil
-  if type_of(arg1) == "Hash"
-    p = arg1
-    block = arg2
-  else
-    block = arg1
-  end
-  tw = qt6.new_qtab_widget2()
-  _apply_props(tw, p)
-  _add(tw)
-  _CTX["__tab_widget__"] = tw
-  if block != nil
-    block()
-  end
-  _CTX["__tab_widget__"] = nil
-  return tw
-end
+def tabs(arg1 = nil, arg2 = nil)            _layouts.tabs(arg1, arg2) end
 
-# Single tab page inside a cute.tabs block.
-# Children created in the block form the tab content.
-# Returns the page QWidget handle.
-#
-# Example:
-#   cute.tab("Settings") do
-#     cute.label("content here")
-#   end
 def tab(title, arg1 = nil, arg2 = nil)
-  p = nil
-  block = nil
-  if type_of(arg1) == "Hash"
-    p = arg1
-    block = arg2
-  else
-    block = arg1
-  end
-  tw = _CTX["__tab_widget__"]
-  if tw == nil
-    return nil
-  end
-  page = qt6.new_qwidget2()
-  layout = qt6.new_qvbox_layout(page)
-  _apply_props(page, p)
-  tw.add_tab(page, title)
-  _push(layout)
-  if block != nil
-    block()
-  end
-  _pop()
-  return page
+  _layouts.tab(title, arg1, arg2)
 end
 
-# Single-shot timer. Fires callback once after ms milliseconds.
-def after(ms, callback)
-  t = qt6.new_qtimer()
-  t.set_single_shot(true)
-  t.on_timeout(callback)
-  t.start(ms)
-  return t
+def add_to(layout, block)                   _layouts.add_to(layout, block) end
+def clear_layout(layout)                    _layouts.clear_layout(layout) end
+def add_widget(layout, widget)              _layouts.add_widget(layout, widget) end
+def add_stretch(layout)                     _layouts.add_stretch(layout) end
+def new_hbox(p = nil)                       _layouts.new_hbox(p) end
+def detached(layout, block)                 _layouts.detached(layout, block) end
+
+def flow(layout, items, cols, p = nil)
+  _layouts.flow(layout, items, cols, p)
 end
 
-# Repeating timer. Fires callback every ms milliseconds.
-# Call .stop() on the returned handle to cancel.
-def timer(ms, callback)
-  t = qt6.new_qtimer()
-  t.on_timeout(callback)
-  t.start(ms)
-  return t
-end
+# -- Events -------------------------------------------------------------------
 
-# Creates a reactive state container.
-#
-# Returns a hash with:
-#   .get()         — returns the current value
-#   .set(new_val)  — updates the value and notifies observers
-#   .update(fn)    — transform current value: count.update(fn(v) v + 1 end)
-#   .on(fn(val))   — registers a callback for value changes
-#
-# Example:
-#   count = cute.state(0)
-#   count.update(fn(v) v + 1 end)
-def state(initial)
-  s = {__val__: initial, __observers__: []}
-  s["get"] = fn() s["__val__"] end
-  s["set"] = fn(v)
-    s["__val__"] = v
-    for obs in s["__observers__"]
-      obs(v)
-    end
-  end
-  s["update"] = fn(f)
-    s.set(f(s.get()))
-  end
-  s["on"] = fn(callback)
-    s["__observers__"] = append(s["__observers__"], callback)
-  end
-  return s
-end
+def shortcut(key, callback)                 _events.shortcut(key, callback) end
+def after(ms, callback)                     _events.after(ms, callback) end
+def timer(ms, callback)                     _events.timer(ms, callback) end
 
-# Creates a derived state that auto-updates when the source changes.
-#
-# The transform fn maps the source value to the derived value.
-# Returns a read-only state (has .get() and .on(), but .set() should
-# not be called by user code).
-#
-# Example:
-#   count = cute.state(0)
-#   display = cute.computed(count, fn(v) "Count: #{v}" end)
-#   cute.label(display)   -- auto-updates when count changes
-def computed(source, transform)
-  derived = state(transform(source.get()))
-  source.on(fn(v)
-    new_val = transform(v)
-    derived.set(new_val)
-  end)
-  return derived
-end
-
-# Binds a state container to a widget property.
-#
-# Sets the initial value immediately and auto-updates on state changes.
-# The optional transform fn maps the state value before applying.
-#
-# Supported property names: "text", "visible", "enabled", "css", "tooltip"
-#
-# Example:
-#   status = cute.state("Ready")
-#   lbl = cute.label("Ready")
-#   cute.bind(status, lbl, "text")
-#
-#   count = cute.state(0)
-#   lbl = cute.label("0")
-#   cute.bind(count, lbl, "text", fn(v) "Count: #{v}" end)
-def bind(s, widget, prop, transform = nil)
-  apply = fn(v)
-    val = v
-    if transform != nil
-      val = transform(v)
-    end
-    _apply_binding(widget, prop, val)
-  end
-  apply(s.get())
-  s.on(apply)
-end
-
-# Builds a CSS string from a props hash.
-#
-# Supported keys:
-#   bg:         string  — background color
-#   color:      string  — text color
-#   size:       int     — font-size in px
-#   bold:       bool    — font-weight: bold
-#   italic:     bool    — font-style: italic
-#   family:     string  — font-family
-#   padding:    int/arr — padding (single value or [h,v] or [t,r,b,l])
-#   margin:     int/arr — margin (same format as padding)
-#   border:     string  — border shorthand (e.g. "1px solid red")
-#   radius:     int     — border-radius in px
-#
-# Example:
-#   cute.style({bg: "#ff6600", color: "white", bold: true, padding: 8})
-#   # → "background: #ff6600; color: white; font-weight: bold; padding: 8px;"
-def style(props)
-  parts = []
-  for key in props
-    val = props[key]
-    if key == "bg"
-      parts = append(parts, "background: #{val}")
-    end
-    if key == "color"
-      parts = append(parts, "color: #{val}")
-    end
-    if key == "size"
-      parts = append(parts, "font-size: #{val}px")
-    end
-    if key == "bold" && val == true
-      parts = append(parts, "font-weight: bold")
-    end
-    if key == "italic" && val == true
-      parts = append(parts, "font-style: italic")
-    end
-    if key == "family"
-      parts = append(parts, "font-family: #{val}")
-    end
-    if key == "padding"
-      if type_of(val) == "Integer"
-        parts = append(parts, "padding: #{val}px")
-      else
-        if len(val) == 2
-          parts = append(parts, "padding: #{val[0]}px #{val[1]}px")
-        end
-        if len(val) == 4
-          parts = append(parts, "padding: #{val[0]}px #{val[1]}px #{val[2]}px #{val[3]}px")
-        end
-      end
-    end
-    if key == "margin"
-      if type_of(val) == "Integer"
-        parts = append(parts, "margin: #{val}px")
-      else
-        if len(val) == 2
-          parts = append(parts, "margin: #{val[0]}px #{val[1]}px")
-        end
-        if len(val) == 4
-          parts = append(parts, "margin: #{val[0]}px #{val[1]}px #{val[2]}px #{val[3]}px")
-        end
-      end
-    end
-    if key == "border"
-      parts = append(parts, "border: #{val}")
-    end
-    if key == "radius"
-      parts = append(parts, "border-radius: #{val}px")
-    end
-  end
-  result = ""
-  for p in parts
-    result = result + p + "; "
-  end
-  return result
-end
-
-# -- Layout manipulation ------------------------------------------------------
-
-# Watch a widget for size changes.
-# Polls the widget dimensions every interval_ms (default 200ms)
-# and calls fn(width, height) when the size differs from the
-# previous check. Returns the timer handle (.stop() to cancel).
-#
-# Example:
-#   cute.on_resize(scroll_area, fn(w, h)
-#     cols = w / 280
-#   end)
 def on_resize(widget, callback, interval_ms = 200)
-  last_w = widget.width()
-  last_h = widget.height()
-  t = timer(interval_ms, fn()
-    w = widget.width()
-    h = widget.height()
-    if w != last_w || h != last_h
-      last_w = w
-      last_h = h
-      callback(w, h)
-    end
-  end)
-  return t
+  _events.on_resize(widget, callback, interval_ms)
 end
 
-# Detect double-click on any widget.
-# Creates a transparent QPushButton overlay that covers the widget.
-# Two clicks within 400ms trigger the callback. The overlay shows
-# a pointing-hand cursor for visual feedback.
-# Returns the overlay button handle.
-#
-# Example:
-#   cute.on_double_click(card, fn()
-#     show_detail(card)
-#   end)
 def on_double_click(widget, callback)
-  btn = qt6.new_qpush_button(widget)
-  btn.set_style_sheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.05); }")
-  btn.set_cursor(qt6.new_qcursor2(13))
-  btn.set_geometry(0, 0, widget.width(), widget.height())
-  btn.raise()
-
-  click_pending = false
-  btn.on_clicked(fn()
-    if click_pending
-      click_pending = false
-      callback()
-    else
-      click_pending = true
-      after(400, fn()
-        click_pending = false
-      end)
-    end
-  end)
-
-  on_resize(widget, fn(w, h)
-    btn.set_geometry(0, 0, w, h)
-    btn.raise()
-  end)
-
-  return btn
+  _events.on_double_click(widget, callback)
 end
 
-# Remove all items from a layout.
-# Takes each item out of the layout from back to front.
-# Child widgets are NOT destroyed -- they can be re-added later.
-# Spacer and stretch items are discarded.
-#
-# Example:
-#   cute.clear_layout(grid)
-def clear_layout(layout)
-  n = layout.count()
-  i = n - 1
-  while i >= 0
-    layout.take_at(i)
-    i = i - 1
-  end
-end
+# -- Threading ----------------------------------------------------------------
 
-# Add an existing widget to a layout.
-# Unlike cute.add_to, this does not use the context stack --
-# it simply appends a pre-existing widget to the given layout.
-#
-# Example:
-#   cute.add_widget(row_layout, card)
-def add_widget(layout, widget)
-  layout.add_widget(widget)
-  widget.show()
-end
-
-# Add stretch (expanding spacer) to a layout.
-#
-# Example:
-#   cute.add_stretch(row_layout)
-def add_stretch(layout)
-  layout.add_stretch()
-end
-
-# Create a free-standing horizontal box layout.
-# Unlike cute.hbox, this is NOT added to the current layout context.
-# Use it with cute.add_widget or as a sub-layout via layout.add_layout().
-#
-# Example:
-#   row = cute.new_hbox({spacing: 12})
-#   cute.add_widget(row, card1)
-#   cute.add_widget(row, card2)
-def new_hbox(props = nil)
-  layout = qt6.new_qhbox_layout2()
-  _apply_props(layout, props)
-  return layout
-end
-
-# Build a widget tree via the Cute DSL but detach the result
-# from the given layout, returning the top-level widget.
-# The widget is hidden after detaching -- call .show() or use
-# cute.add_widget to place it later.
-#
-# Example:
-#   card = cute.detached(grid) do
-#     cute.container({css: "background: #333;"}) do
-#       cute.label("Hello")
-#     end
-#   end
-#   # card is a QWidget, not yet visible in any layout.
-def detached(layout, block)
-  _push(layout)
-  block()
-  _pop()
-  idx = layout.count() - 1
-  li = layout.take_at(idx)
-  w = li.widget()
-  w.hide()
-  return w
-end
-
-# Arrange an array of widgets in a grid of rows inside a vbox layout.
-# Clears the layout first, then creates hbox rows of the given column
-# count. A trailing stretch is added to each row so cards stay
-# left-aligned.
-#
-# Example:
-#   cute.flow(grid, cards, 3, {spacing: 12})
-def flow(layout, items, cols, props = nil)
-  clear_layout(layout)
-  row = nil
-  col = 0
-  for item in items
-    if col == 0
-      row = new_hbox(props)
-      layout.add_layout(row)
-    end
-    add_widget(row, item)
-    col = col + 1
-    if col >= cols
-      add_stretch(row)
-      col = 0
-      row = nil
-    end
-  end
-  if row != nil
-    add_stretch(row)
-  end
-end
-
-# Runs a callback on the Qt main thread and waits for it to complete.
-#
-# Qt widgets must only be accessed from the main thread. Use this
-# from inside a spawn block to safely update UI after background
-# work completes.
-#
-# Example:
-#   spawn
-#     data = http.get("https://api.example.com/data")
-#     cute.ui(fn()
-#       lbl.set_text(data.body)
-#     end)
-#   end
-def ui(callback)
-  _mt.wait(callback)
-end
-
-# Runs work in a background thread and dispatches the result to
-# the UI thread. Combines spawn + cute.ui() into a single call.
-#
-# Example:
-#   cute.fetch(fn() http.get(url) end, fn(resp)
-#     lbl.set_text(resp.body)
-#   end)
-def fetch(work, on_done)
-  spawn
-    result = work()
-    _mt.wait(fn() on_done(result) end)
-  end
-end
+def ui(callback)                            _threading.ui(callback) end
+def fetch(work, on_done)                    _threading.fetch(work, on_done) end

@@ -1,0 +1,80 @@
+# CSS style builder for Cute
+#
+# Converts a Rugo hash of style properties into a Qt CSS string.
+
+# Builds a CSS string from a props hash.
+#
+# Supported keys:
+#   bg:         string  -- background color
+#   color:      string  -- text color
+#   size:       int     -- font-size in px
+#   bold:       bool    -- font-weight: bold
+#   italic:     bool    -- font-style: italic
+#   family:     string  -- font-family
+#   padding:    int/arr -- padding (single value or [h,v] or [t,r,b,l])
+#   margin:     int/arr -- margin (same format as padding)
+#   border:     string  -- border shorthand (e.g. "1px solid red")
+#   radius:     int     -- border-radius in px
+#
+# Example:
+#   style({bg: "#ff6600", color: "white", bold: true, padding: 8})
+#   # -> "background: #ff6600; color: white; font-weight: bold; padding: 8px;"
+def style(props)
+  parts = []
+  for key in props
+    val = props[key]
+    if key == "bg"
+      parts = append(parts, "background: #{val}")
+    end
+    if key == "color"
+      parts = append(parts, "color: #{val}")
+    end
+    if key == "size"
+      parts = append(parts, "font-size: #{val}px")
+    end
+    if key == "bold" && val == true
+      parts = append(parts, "font-weight: bold")
+    end
+    if key == "italic" && val == true
+      parts = append(parts, "font-style: italic")
+    end
+    if key == "family"
+      parts = append(parts, "font-family: #{val}")
+    end
+    if key == "padding"
+      if type_of(val) == "Integer"
+        parts = append(parts, "padding: #{val}px")
+      else
+        if len(val) == 2
+          parts = append(parts, "padding: #{val[0]}px #{val[1]}px")
+        end
+        if len(val) == 4
+          parts = append(parts, "padding: #{val[0]}px #{val[1]}px #{val[2]}px #{val[3]}px")
+        end
+      end
+    end
+    if key == "margin"
+      if type_of(val) == "Integer"
+        parts = append(parts, "margin: #{val}px")
+      else
+        if len(val) == 2
+          parts = append(parts, "margin: #{val[0]}px #{val[1]}px")
+        end
+        if len(val) == 4
+          parts = append(parts, "margin: #{val[0]}px #{val[1]}px #{val[2]}px #{val[3]}px")
+        end
+      end
+    end
+    if key == "border"
+      parts = append(parts, "border: #{val}")
+    end
+    if key == "radius"
+      parts = append(parts, "border-radius: #{val}px")
+    end
+  end
+  result = ""
+  for p in parts
+    result = result + p + "; "
+  end
+  return result
+end
