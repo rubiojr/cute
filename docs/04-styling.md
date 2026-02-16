@@ -56,10 +56,10 @@ QPushButton {
 ```
 
 ```ruby
-import "os" as go_os
+use "os"
 
 cute.app("My App", 600, 400) do
-  cute.stylesheet(go_os.read_file("style.css"))
+  cute.stylesheet(os.read_file("style.css"))
   # ...
 end
 ```
@@ -69,9 +69,9 @@ end
 Use `cute.props()` to set an object name, then target it in CSS with `#id`:
 
 ```ruby
-cute.stylesheet("#header { background: #ff6600; }")
-
 cute.app("App", 600, 400) do
+  cute.stylesheet("#header { background: #ff6600; }")
+
   header = cute.hbox do
     cute.label("Title")
   end
