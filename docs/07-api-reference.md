@@ -411,6 +411,16 @@ cute.on_resize(cute.window(), fn(w, h)
 end)
 ```
 
+### cute.on_double_click(widget, callback)
+
+Detects double-click on any widget. Creates a transparent overlay button that fires `callback` when two clicks occur within 400ms. Shows a pointing-hand cursor and subtle hover highlight. The overlay auto-resizes with the widget. Returns the overlay button handle.
+
+```ruby
+cute.on_double_click(card, fn()
+  show_detail(card)
+end)
+```
+
 ---
 
 ## Dynamic Layout

@@ -4,6 +4,8 @@
 # Thumbnails load in the background and fill in as they arrive.
 # Scroll to the bottom to automatically load the next page,
 # or click the "Load More" button.
+# Double-click any image to view it full-size; press Escape or
+# the Back button to return to the grid.
 #
 # Build and run:
 #   cd examples/gallery
@@ -26,6 +28,8 @@ CARD_W    = THUMB_W + 20
 GAP       = 12
 PAGE_SIZE = 12
 MIN_COLS  = 1
+DETAIL_W  = 1200
+DETAIL_H  = 800
 
 # Ensure spawn runtime is initialized.
 __boot = spawn nil
@@ -89,6 +93,25 @@ cute.app("Image Gallery", 880, 660) do
     QPushButton#load-more:hover {
       background: #45475a;
     }
+    QPushButton#back-btn {
+      background: #313244;
+      color: #cdd6f4;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    QPushButton#back-btn:hover {
+      background: #45475a;
+    }
+    QLabel#detail-author {
+      font-size: 14px;
+      color: #a6adc8;
+    }
+    QLabel#detail-loading {
+      font-size: 13px;
+      color: #585b70;
+    }
   CSS
   cute.stylesheet(css)
 
@@ -103,8 +126,17 @@ cute.app("Image Gallery", 880, 660) do
 
   # Array of all card widgets -- used by rebuild_grid to re-flow.
   cards       = []
+  card_data   = []
   cur_cols    = 3
   grid_width  = 880
+
+  # Detail view state
+  detail_view   = nil
+  detail_img    = nil
+  detail_author = nil
+  detail_status = nil
+  footer        = nil
+  in_detail     = false
 
   # -- Grid rebuilder ---------------------------------------------------------
 
@@ -123,10 +155,45 @@ cute.app("Image Gallery", 880, 660) do
     cute.flow(grid, cards, cols, {spacing: GAP})
   end
 
+  # -- Detail view helpers ----------------------------------------------------
+
+  # Show the detail view for a given photo.
+  #   photo -- hash with .id and .author
+  show_detail = fn(photo)
+    in_detail = true
+    scroll_area.hide()
+    footer.hide()
+    detail_author.set_text(photo.author)
+    detail_status.set_text("Loading full image...")
+    detail_status.show()
+    detail_img.clear()
+    detail_view.show()
+
+    dw = "#{DETAIL_W}"
+    dh = "#{DETAIL_H}"
+    url = "https://picsum.photos/id/#{photo.id}/#{dw}/#{dh}"
+    cute.fetch(fn() http.get(url) end, fn(resp)
+      pm = cute.load_pixmap(resp.body)
+      if pm != nil
+        detail_img.set_pixmap(pm)
+      end
+      detail_status.hide()
+    end)
+  end
+
+  # Return to the grid view.
+  hide_detail = fn()
+    in_detail = false
+    detail_view.hide()
+    scroll_area.show()
+    footer.show()
+  end
+
   # -- Card builder -----------------------------------------------------------
 
   # Create a single image card widget (detached from any layout).
-  # The card is appended to the cards array.
+  # The card is appended to the cards array. Double-click opens
+  # the full-size image in the detail view.
   #
   #   item -- Picsum photo hash with .id and .author
   make_card = fn(item)
@@ -137,7 +204,11 @@ cute.app("Image Gallery", 880, 660) do
         load_thumb(img, item.id)
       end
     end
+    cute.on_double_click(card, fn()
+      show_detail(item)
+    end)
     cards = append(cards, card)
+    card_data = append(card_data, item)
   end
 
   # -- Page loader ------------------------------------------------------------
@@ -185,6 +256,23 @@ cute.app("Image Gallery", 880, 660) do
       end
     end
 
+    # Detail view (initially hidden) -- shows full-size image
+    detail_view = cute.container({visible: false, margins: [0, 0, 0, 0], spacing: 0}) do
+      cute.hbox({margins: [16, 8, 16, 8], spacing: 12}) do
+        cute.button("Back", {id: "back-btn"}) do
+          hide_detail()
+        end
+        detail_author = cute.label("", {id: "detail-author"})
+        cute.spacer()
+        detail_status = cute.label("", {id: "detail-loading"})
+      end
+      cute.scroll({css: "background: #181825;"}) do
+        cute.vbox({margins: [16, 12, 16, 12]}) do
+          detail_img = cute.image({css: "background: transparent; border-radius: 8px;", align: "center"})
+        end
+      end
+    end
+
     # Re-flow the grid when the scroll area is resized.
     cute.on_resize(scroll_area, fn(w, h)
       new_cols = calc_cols(w - 32)
@@ -196,15 +284,17 @@ cute.app("Image Gallery", 880, 660) do
     end)
 
     # Footer with manual load button
-    cute.hbox({margins: [16, 8, 16, 10]}) do
-      cute.spacer()
-      cute.button("Load More", {id: "load-more"}) do
-        if loading.get() == false
-          page.update(fn(v) v + 1 end)
-          load_page(page.get())
+    footer = cute.container({margins: [0, 0, 0, 0], spacing: 0}) do
+      cute.hbox({margins: [16, 8, 16, 10]}) do
+        cute.spacer()
+        cute.button("Load More", {id: "load-more"}) do
+          if loading.get() == false
+            page.update(fn(v) v + 1 end)
+            load_page(page.get())
+          end
         end
+        cute.spacer()
       end
-      cute.spacer()
     end
   end
 
@@ -214,23 +304,30 @@ cute.app("Image Gallery", 880, 660) do
   # or when content doesn't fill the viewport (max_val == 0 after resize).
   vbar = scroll_area.vertical_scroll_bar()
   cute.timer(250, fn()
-    max_val = vbar.maximum()
-    needs_more = false
-    if max_val > 0 && vbar.value() >= max_val - 60
-      needs_more = true
-    end
-    if max_val == 0 && len(cards) > 0
-      needs_more = true
-    end
-    if needs_more && loading.get() == false
-      page.update(fn(v) v + 1 end)
-      load_page(page.get())
+    if in_detail == false
+      max_val = vbar.maximum()
+      needs_more = false
+      if max_val > 0 && vbar.value() >= max_val - 60
+        needs_more = true
+      end
+      if max_val == 0 && len(cards) > 0
+        needs_more = true
+      end
+      if needs_more && loading.get() == false
+        page.update(fn(v) v + 1 end)
+        load_page(page.get())
+      end
     end
   end)
 
   # -- Keyboard shortcuts -----------------------------------------------------
 
   cute.shortcut("Ctrl+Q", fn() cute.quit() end)
+  cute.shortcut("Escape", fn()
+    if in_detail
+      hide_detail()
+    end
+  end)
 
   # -- Initial load -----------------------------------------------------------
 

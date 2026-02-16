@@ -90,6 +90,20 @@ end)
 t.stop()
 ```
 
+## Double-Click Detection
+
+Qt doesn't expose mouse event overrides (like `mouseDoubleClickEvent`) through the Rugo bindings. Cute provides a helper that creates a transparent overlay button and uses click timing to detect double-clicks on any widget:
+
+```ruby
+cute.on_double_click(card, fn()
+  show_detail(card)
+end)
+```
+
+The overlay shows a pointing-hand cursor on hover and a subtle highlight. Two clicks within 400ms trigger the callback. It returns the overlay button handle.
+
+The overlay auto-resizes with the widget, so it works correctly with responsive layouts.
+
 ## Resize Detection
 
 Qt's virtual method overrides (like `OnResizeEvent`) are not available in the Rugo bindings -- only signal connections are exposed. Cute provides a polling-based helper that fires a callback when a widget's size changes:

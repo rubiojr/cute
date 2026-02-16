@@ -1062,6 +1062,44 @@ def on_resize(widget, callback, interval_ms = 200)
   return t
 end
 
+# Detect double-click on any widget.
+# Creates a transparent QPushButton overlay that covers the widget.
+# Two clicks within 400ms trigger the callback. The overlay shows
+# a pointing-hand cursor for visual feedback.
+# Returns the overlay button handle.
+#
+# Example:
+#   cute.on_double_click(card, fn()
+#     show_detail(card)
+#   end)
+def on_double_click(widget, callback)
+  btn = qt6.new_qpush_button(widget)
+  btn.set_style_sheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.05); }")
+  btn.set_cursor(qt6.new_qcursor2(13))
+  btn.set_geometry(0, 0, widget.width(), widget.height())
+  btn.raise()
+
+  click_pending = false
+  btn.on_clicked(fn()
+    if click_pending
+      click_pending = false
+      callback()
+    else
+      click_pending = true
+      after(400, fn()
+        click_pending = false
+      end)
+    end
+  end)
+
+  on_resize(widget, fn(w, h)
+    btn.set_geometry(0, 0, w, h)
+    btn.raise()
+  end)
+
+  return btn
+end
+
 # Remove all items from a layout.
 # Takes each item out of the layout from back to front.
 # Child widgets are NOT destroyed -- they can be re-added later.
