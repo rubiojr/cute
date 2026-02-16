@@ -1,3 +1,5 @@
+use "str"
+
 THEME = <<~'CSS'
   QWidget {
     font-family: sans-serif;
@@ -114,10 +116,10 @@ THEME_DARK = <<~'CSS'
   }
 CSS
 
-def css()
-  return THEME
+def css(size)
+  return str.replace(THEME, "font-size: 13px", "font-size: #{size}px")
 end
 
-def dark()
-  return THEME_DARK
+def dark(size)
+  return str.replace(THEME_DARK, "font-size: 13px", "font-size: #{size}px")
 end

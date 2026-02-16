@@ -154,11 +154,18 @@ end
 LIGHT_MODE = cli.get("light")
 
 cute.app("Hacker News", 1024, 640) do
-  if LIGHT_MODE
-    cute.stylesheet(theme.css())
-  else
-    cute.stylesheet(theme.dark())
+  font_size = cute.state(14)
+
+  apply_theme = fn()
+    size = font_size.get()
+    if LIGHT_MODE
+      cute.stylesheet(theme.css(size))
+    else
+      cute.stylesheet(theme.dark(size))
+    end
   end
+
+  apply_theme()
 
   current_feed = cute.state("top")
   stories = []
@@ -213,6 +220,20 @@ cute.app("Hacker News", 1024, 640) do
       cute.button("↻  Refresh") do
         load(current_feed.get())
       end
+      cute.button("A-") do
+        size = font_size.get()
+        if size > 8
+          font_size.set(size - 1)
+          apply_theme()
+        end
+      end
+      cute.button("A+") do
+        size = font_size.get()
+        if size < 24
+          font_size.set(size + 1)
+          apply_theme()
+        end
+      end
     end
     cute.props(header, {margins: [8, 6, 8, 6]})
 
@@ -258,6 +279,24 @@ cute.app("Hacker News", 1024, 640) do
   cute.shortcut("Ctrl+R", fn() load(current_feed.get()) end)
   cute.shortcut("Return", fn() open_url(story_url(selected_story())) end)
   cute.shortcut("Ctrl+Return", fn() open_url(comments_url(selected_story())) end)
+  cute.shortcut("Ctrl++", fn()
+    size = font_size.get()
+    if size < 24
+      font_size.set(size + 1)
+      apply_theme()
+    end
+  end)
+  cute.shortcut("Ctrl+-", fn()
+    size = font_size.get()
+    if size > 8
+      font_size.set(size - 1)
+      apply_theme()
+    end
+  end)
+  cute.shortcut("Ctrl+0", fn()
+    font_size.set(14)
+    apply_theme()
+  end)
 
   # -- initial load after window appears --
   cute.after(50, fn()
