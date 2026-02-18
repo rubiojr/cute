@@ -1,0 +1,61 @@
+# Composite Widget Example -- built with Cute
+#
+# Demonstrates a "custom widget" built by composition:
+# a reusable stat tile function that combines container,
+# labels, and buttons into one component.
+#
+# Build and run:
+#   cd examples/composite_widget
+#   rugo build main.rugo -o composite_widget && ./composite_widget
+
+require "./../../" as "cute"
+
+# Reusable composite widget that encapsulates structure and behavior.
+def stat_tile(title, value_state, accent)
+  border_css = "background: #313244; border: 1px solid #{accent}; border-radius: 10px;"
+
+  cute.container({width: 230, spacing: 8, margins: [10, 10, 10, 10], css: border_css}) do
+    cute.label(title, {css: "font-size: 12px; color: #bac2de;"})
+    cute.label(value_state, fn(v) "#{v}" end, {css: "font-size: 28px; font-weight: bold; color: #{accent};"})
+
+    cute.hbox({spacing: 6}) do
+      cute.button("-1", {width: 44}) do
+        value_state.update(fn(v) v - 1 end)
+      end
+      cute.button("+1", {width: 44}) do
+        value_state.update(fn(v) v + 1 end)
+      end
+      cute.spacer()
+      cute.button("Reset") do
+        value_state.set(0)
+      end
+    end
+  end
+end
+
+cute.app("Composite Widgets", 560, 280) do
+  css = <<~'CSS'
+    QWidget { background: #1e1e2e; color: #cdd6f4; font-family: sans-serif; }
+    QPushButton {
+      background: #45475a;
+      color: #cdd6f4;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+    QPushButton:hover { background: #585b70; }
+  CSS
+  cute.stylesheet(css)
+
+  clicks = cute.state(0)
+  points = cute.state(10)
+
+  cute.vbox({spacing: 10, margins: [14, 14, 14, 14]}) do
+    cute.label("Custom widget via composition", {css: "font-size: 16px; font-weight: bold;"})
+
+    cute.hbox({spacing: 10}) do
+      stat_tile("Clicks", clicks, "#89b4fa")
+      stat_tile("Points", points, "#a6e3a1")
+    end
+  end
+end
