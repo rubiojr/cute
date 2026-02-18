@@ -1,0 +1,83 @@
+# Canvas Example -- built with Cute
+#
+# Demonstrates cute.canvas(props, draw_fn), a composition-based
+# drawing widget that redraws on resize and state changes.
+#
+# Build and run:
+#   cd examples/canvas
+#   rugo build main.rugo -o canvas && ./canvas
+
+require "./../../" as "cute"
+
+def draw_wave(ctx, size, phase)
+  w = size["width"]
+  h = size["height"]
+  ctx.fill("#11111b")
+
+  mid = h / 2
+  x = 0
+  while x < w
+    y = mid + ((x + phase) % 40) - 20
+    ctx.line(x, mid, x, y, "#89b4fa")
+    x += 8
+  end
+
+  ctx.text(12, 24, "phase: #{phase}", "#cdd6f4")
+end
+
+cute.app("Canvas Example", 640, 360) do
+  css = <<~'CSS'
+    QWidget { background: #1e1e2e; color: #cdd6f4; font-family: sans-serif; }
+    QPushButton {
+      background: #45475a;
+      color: #cdd6f4;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+    }
+    QPushButton:hover { background: #585b70; }
+  CSS
+  cute.stylesheet(css)
+
+  phase = cute.state(0)
+  animating = cute.state(false)
+  animate_btn = nil
+
+  cute.vbox({spacing: 10, margins: [14, 14, 14, 14]}) do
+    cute.label("cute.canvas(props, draw_fn)", {css: "font-size: 16px; font-weight: bold;"})
+    cute.label("Declarative drawing ops via cute.canvas_*", {css: "color: #a6adc8;"})
+
+    cute.canvas({min_height: 180, max_width: 612, state: phase, css: "border: 1px solid #45475a; border-radius: 8px;"}, fn(ctx, size, v)
+      draw_wave(ctx, size, v)
+    end)
+
+    cute.hbox({spacing: 8}) do
+      cute.button("Phase -10") do
+        phase.update(fn(v) v - 10 end)
+      end
+      cute.button("Phase +10") do
+        phase.update(fn(v) v + 10 end)
+      end
+      animate_btn = cute.button("Animate") do
+        animating.set(!animating.get())
+      end
+      cute.spacer()
+    end
+  end
+
+  animating.on(fn(v)
+    if animate_btn != nil
+      label = "Animate"
+      if v
+        label = "Pause"
+      end
+      animate_btn.set_text(label)
+    end
+  end)
+
+  cute.timer(90, fn()
+    if animating.get()
+      phase.update(fn(v) v + 4 end)
+    end
+  end)
+end

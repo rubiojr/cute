@@ -220,6 +220,49 @@ img = cute.image({width: 200, height: 200})
 img.set_pixmap(pixmap)
 ```
 
+### cute.canvas(props = nil, draw_fn = nil)
+
+Composition-based drawing widget backed by a `QLabel`.
+
+`draw_fn(ctx, size, state_value)` is called on creation and resize. If `props["state"]` is provided, it is also called whenever that state changes, and `state_value` receives the current state value.
+
+`ctx` exposes drawing methods:
+- `ctx.fill(color)`
+- `ctx.line(x1, y1, x2, y2, color = nil)`
+- `ctx.text(x, y, text, color = nil)`
+
+`size` is a hash with `width` and `height`.
+
+```ruby
+phase = cute.state(0)
+canvas = cute.canvas({min_height: 180, state: phase}, fn(ctx, size, v)
+  w = size["width"]
+  ctx.fill("#11111b")
+  ctx.line(10, 20, w - 10, 20, "#89b4fa")
+  ctx.text(12, 40, "phase: #{v}", "#cdd6f4")
+end)
+```
+
+### cute.canvas_frame(width, height, bg = nil)
+
+Creates an internal frame object for canvas drawing.
+
+### cute.canvas_fill(frame, color)
+
+Fills an existing frame (advanced usage).
+
+### cute.canvas_line(frame, x1, y1, x2, y2, color = nil)
+
+Draws a line on an existing frame (advanced usage).
+
+### cute.canvas_text(frame, x, y, text, color = nil)
+
+Draws text on an existing frame (advanced usage).
+
+### cute.canvas_commit(canvas, frame)
+
+Assigns the frame result to the canvas widget.
+
 ### cute.load_pixmap(data)
 
 Converts raw image bytes (e.g., from `http.get().body_bytes`) into a `QPixmap`. Returns `nil` if the data cannot be decoded.

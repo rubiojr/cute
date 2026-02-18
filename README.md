@@ -51,5 +51,6 @@ end
 - [Counter](examples/cute_counter/) — Minimal app with reactive state
 - [Hacker News Reader](examples/cute_hackernews/) — Full app with networking, lists, and threading
 - [Composite Widget](examples/composite_widget/) — Reusable custom widget via composition
+- [Canvas](examples/canvas/) — `cute.canvas(props, draw_fn)` custom drawing surface
 
 ![](/images/shot.png)

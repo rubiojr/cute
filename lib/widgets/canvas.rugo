@@ -1,0 +1,118 @@
+# Canvas widget for Cute
+#
+# Composition-based drawing surface backed by a QLabel.
+# The draw callback receives (ctx, size, state_value) and issues
+# draw commands on ctx (fill, line, text). Cute renders and commits
+# the frame automatically after each callback.
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+require "../events" as "_events"
+
+# Canvas-like widget with redraw callback.
+#
+#   canvas({width: 320, height: 200}, fn(ctx, size, value)
+#     ctx.fill("#11111b")
+#     ctx.line(10, 10, size.width - 10, 10, "#89b4fa")
+#   end)
+#
+# Returns QLabel handle.
+def canvas(arg1 = nil, arg2 = nil)
+  p = nil
+  draw_fn = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    draw_fn = arg2
+  else
+    draw_fn = arg1
+  end
+
+  c = qt6.new_qlabel2()
+  c.set_alignment(4)
+  _props.apply(c, p)
+  _ctx.add(c)
+
+  if draw_fn != nil
+    bound_state = nil
+    if p != nil && p["state"] != nil
+      bound_state = p["state"]
+    end
+
+    draw_now = fn(w, h)
+      if w > 0 && h > 0
+        state_value = nil
+        if bound_state != nil
+          state_value = bound_state.get()
+        end
+        f = frame(w, h)
+        ctx = _ctx_from_frame(f)
+        draw_fn(ctx, {width: w, height: h}, state_value)
+        commit(c, f)
+      end
+    end
+    draw_now(c.width(), c.height())
+    _events.on_resize(c, fn(w, h)
+      draw_now(w, h)
+    end)
+    if bound_state != nil
+      bound_state.on(fn(v)
+        draw_now(c.width(), c.height())
+      end)
+    end
+  end
+
+  return c
+end
+
+# Build a declarative drawing context from a frame.
+def _ctx_from_frame(f)
+  ctx = {}
+  ctx["fill"] = fn(color)
+    fill(f, color)
+  end
+  ctx["line"] = fn(x1, y1, x2, y2, color = nil)
+    line(f, x1, y1, x2, y2, color)
+  end
+  ctx["text"] = fn(x, y, value, color = nil)
+    text(f, x, y, value, color)
+  end
+  return ctx
+end
+
+# Create a canvas frame object for drawing operations.
+# Returns a hash with internal pixmap/painter handles.
+def frame(width, height, bg = nil)
+  f = {}
+  f["pixmap"] = qt6.new_qpixmap2(width, height)
+  f["painter"] = qt6.new_qpainter2(f["pixmap"])
+  if bg != nil
+    fill(f, bg)
+  end
+  return f
+end
+
+# Fill full frame background.
+def fill(f, color)
+  f["painter"].fill_rect5(0, 0, f["pixmap"].width(), f["pixmap"].height(), qt6.new_qcolor6(color))
+end
+
+# Draw a line on the frame.
+def line(f, x1, y1, x2, y2, color = nil)
+  if color != nil
+    f["painter"].set_pen(qt6.new_qcolor6(color))
+  end
+  f["painter"].draw_line2(x1, y1, x2, y2)
+end
+
+# Draw text on the frame.
+def text(f, x, y, value, color = nil)
+  if color != nil
+    f["painter"].set_pen(qt6.new_qcolor6(color))
+  end
+  f["painter"].draw_text3(x, y, "#{value}")
+end
+
+# Commit the frame to the canvas widget.
+def commit(canvas_widget, f)
+  canvas_widget.set_pixmap(f["pixmap"])
+end
