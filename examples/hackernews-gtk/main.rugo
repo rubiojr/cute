@@ -1,0 +1,282 @@
+# Hacker News Reader — built with Cute
+#
+# A native desktop HN client: browse top/new/best/ask/show stories,
+# open links in the browser, concurrent fetching, keyboard shortcuts.
+#
+# Build and run:
+#   cd examples/hackernews-gtk
+#   rugo build main.rugo -o hackernews-gtk && ./hackernews-gtk
+#
+# Prerequisites:
+#   - GTK4 runtime libraries
+#   - Go 1.22+
+
+require "./../../gtk" as cute
+require "theme"
+use "http"
+use "json"
+use "str"
+use "os"
+use "cli"
+
+cli.bool_flag("", "light", "l", "Use light theme")
+cli.parse()
+
+# -- HN API ------------------------------------------------------------------
+
+PAGE_SIZE = 30
+
+FEED_URLS = {
+  top:  "https://hacker-news.firebaseio.com/v0/topstories.json",
+  new:  "https://hacker-news.firebaseio.com/v0/newstories.json",
+  best: "https://hacker-news.firebaseio.com/v0/beststories.json",
+  ask:  "https://hacker-news.firebaseio.com/v0/askstories.json",
+  show: "https://hacker-news.firebaseio.com/v0/showstories.json"
+}
+
+# Ensure spawn runtime is loaded (needed for spawn inside lambdas)
+__boot = spawn nil
+
+def fetch_stories(feed)
+  resp = http.get(FEED_URLS[feed])
+  ids = json.parse(resp.body)
+  ids = ids[0, PAGE_SIZE]
+
+  base = "https://hacker-news.firebaseio.com/v0"
+  tasks = []
+  for id in ids
+    item_url = "#{base}/item/#{id}.json"
+    t = spawn http.get(item_url)
+    tasks = append(tasks, t)
+  end
+
+  stories = []
+  for t in tasks
+    raw = json.parse(t.value.body)
+    if raw != nil
+      stories = append(stories, raw)
+    end
+  end
+  return stories
+end
+
+def domain(url)
+  if url == nil || url == ""
+    return ""
+  end
+  d = url
+  if str.contains(d, "://")
+    d = str.split(d, "://")[1]
+  end
+  if str.contains(d, "/")
+    d = str.split(d, "/")[0]
+  end
+  if str.starts_with(d, "www.")
+    d = d[4, len(d) - 4]
+  end
+  return d
+end
+
+def open_url(url)
+  if url != nil && url != ""
+    safe = str.replace(url, "'", "'\\''")
+    os.exec("xdg-open '#{safe}' >/dev/null 2>&1 &")
+  end
+end
+
+# -- Helpers ------------------------------------------------------------------
+
+def story_line(story, index)
+  title = story.title
+  d = domain(story.url)
+  if d != ""
+    title = "#{title}  —  #{d}"
+  end
+  points = story.score
+  if points == nil
+    points = 0
+  end
+  author = story.by
+  if author == nil
+    author = "?"
+  end
+  comments = story.descendants
+  if comments == nil
+    comments = 0
+  end
+  return "#{index + 1}.  #{title}\n     ▲ #{points}  •  #{author}  •  #{comments} comments"
+end
+
+def story_meta(story)
+  if story == nil
+    return ""
+  end
+  d = domain(story.url)
+  points = story.score
+  if points == nil
+    points = 0
+  end
+  author = story.by
+  if author == nil
+    author = "?"
+  end
+  comments = story.descendants
+  if comments == nil
+    comments = 0
+  end
+  meta = "▲ #{points} points  •  by #{author}  •  #{comments} comments"
+  if d != ""
+    meta = "#{meta}  •  #{d}"
+  end
+  return meta
+end
+
+def story_url(story)
+  if story == nil
+    return nil
+  end
+  url = story.url
+  if url == nil || url == ""
+    return "https://news.ycombinator.com/item?id=#{story.id}"
+  end
+  return url
+end
+
+def comments_url(story)
+  if story == nil
+    return nil
+  end
+  return "https://news.ycombinator.com/item?id=#{story.id}"
+end
+
+# -- GUI ----------------------------------------------------------------------
+
+LIGHT_MODE = cli.get("light")
+
+cute.app("Hacker News", 1024, 640) do
+  font_size = cute.state(14)
+
+  # Reactive theme — auto-updates the stylesheet when font_size changes
+  css = cute.computed(font_size, fn(size)
+    result = theme.dark(size)
+    if LIGHT_MODE
+      result = theme.css(size)
+    end
+    result
+  end)
+  cute.stylesheet(css)
+
+  current_feed = cute.state("top")
+  stories = cute.state([])
+  story_list = nil
+  status = cute.state("Starting...")
+  detail_title = nil
+  detail_meta = nil
+
+  # -- selected story helpers --
+
+  selected_story = fn()
+    row = story_list.current_row()
+    items = stories.get()
+    if row < 0 || row >= len(items)
+      return nil
+    end
+    return items[row]
+  end
+
+  # -- load / reload --
+
+  load = fn(feed)
+    current_feed.set(feed)
+    status.set("Loading #{feed} stories...")
+    stories.set([])
+
+    cute.fetch(fn() fetch_stories(feed) end, fn(result)
+      stories.set(result)
+      status.set("#{len(result)} #{feed} stories")
+    end)
+  end
+
+  # -- build UI ---------------------------------------------------------------
+
+  cute.vbox do
+
+    # Header bar
+    cute.hbox({margins: [8, 6, 8, 6]}) do
+      cute.label("🔶  Hacker News")
+      cute.spacer()
+      cute.combo(["Top", "New", "Best", "Ask", "Show"], fn(text)
+        load(str.lower(text))
+      end)
+      cute.button("↻  Refresh") do
+        load(current_feed.get())
+      end
+      cute.button("A-") do
+        if font_size.get() > 8
+          font_size.update(fn(v) v - 1 end)
+        end
+      end
+      cute.button("A+") do
+        if font_size.get() < 24
+          font_size.update(fn(v) v + 1 end)
+        end
+      end
+    end
+
+    # Story list — reactive, re-renders when stories state changes
+    story_list = cute.list(stories, fn(story, i)
+      story_line(story, i)
+    end, fn(row)
+      s = selected_story()
+      if s == nil
+        detail_title.set_text("")
+        detail_meta.set_text("")
+      else
+        detail_title.set_text(s.title)
+        detail_meta.set_text(story_meta(s))
+      end
+    end)
+    story_list.on_item_double_clicked(fn(item)
+      open_url(story_url(selected_story()))
+    end)
+
+    # Detail / action bar
+    cute.hbox({margins: [12, 4, 12, 4]}) do
+      detail_title = cute.label("", {max_width: 400})
+      detail_meta = cute.label("", {max_width: 300})
+      cute.spacer()
+      cute.button("Open ↗") do
+        open_url(story_url(selected_story()))
+      end
+      cute.button("Comments 💬") do
+        open_url(comments_url(selected_story()))
+      end
+    end
+
+    # Status bar — auto-bound to reactive state
+    cute.label(status)
+  end
+
+  # -- keyboard shortcuts --
+  cute.shortcut("Ctrl+Q", fn() cute.quit() end)
+  cute.shortcut("Ctrl+R", fn() load(current_feed.get()) end)
+  cute.shortcut("Return", fn() open_url(story_url(selected_story())) end)
+  cute.shortcut("Ctrl+Return", fn() open_url(comments_url(selected_story())) end)
+  cute.shortcut("Ctrl++", fn()
+    if font_size.get() < 24
+      font_size.update(fn(v) v + 1 end)
+    end
+  end)
+  cute.shortcut("Ctrl+-", fn()
+    if font_size.get() > 8
+      font_size.update(fn(v) v - 1 end)
+    end
+  end)
+  cute.shortcut("Ctrl+0", fn() font_size.set(14) end)
+
+  # -- initial load after window appears --
+  cute.after(50, fn()
+    load("top")
+    story_list.set_current_row(0)
+  end)
+end

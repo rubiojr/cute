@@ -1,0 +1,1068 @@
+# Cute GTK backend (pure Rugo + puregotk)
+#
+# Compile-time backend selection:
+#   Qt backend:
+#     require "./../../" as "cute"
+#   GTK backend:
+#     require "./../../gtk" as "cute"
+#
+# This backend keeps the Cute API shape and maps common widgets/layouts/events
+# to GTK4 through puregotk.
+
+require "github.com/jwijenbergh/puregotk/v4/gtk@main" as "gtk"
+require "github.com/jwijenbergh/puregotk/v4/gdk@main" as "gdk"
+require "github.com/jwijenbergh/puregotk/v4/glib@main" as "_glib"
+require "./cairoops" as "_cairoops"
+require "../lib/state" as "_state"
+use "conv"
+use "str"
+
+_CTX = {
+  app: nil,
+  win: nil,
+  stack: [],
+  shortcut_controller: nil,
+  shortcut_key_controller: nil,
+  shortcut_handlers: [],
+  css_provider: nil,
+  next_id: 0
+}
+
+# -- Private helpers ----------------------------------------------------------
+
+def _to_text(v)
+  if v == nil
+    return ""
+  end
+  "#{v}"
+end
+
+def _raw_widget(v)
+  if type_of(v) == "Hash" && v["__widget__"] != nil
+    return v["__widget__"]
+  end
+  v
+end
+
+def _to_widget(v)
+  w = _raw_widget(v)
+  if w == nil
+    return nil
+  end
+  gtk.widget_new_from_internal_ptr(w.go_pointer())
+end
+
+def _to_event_controller(v)
+  if v == nil
+    return nil
+  end
+  gtk.event_controller_new_from_internal_ptr(v.go_pointer())
+end
+
+def _current()
+  s = _CTX["stack"]
+  if len(s) == 0
+    return nil
+  end
+  s[-1]
+end
+
+def _push(layout)
+  _CTX["stack"] = append(_CTX["stack"], _raw_widget(layout))
+end
+
+def _pop()
+  s = _CTX["stack"]
+  if len(s) == 0
+    return nil
+  end
+  _CTX["stack"] = s[0, len(s) - 1]
+end
+
+def _add(widget)
+  top = _current()
+  w = _to_widget(widget)
+  if top != nil && w != nil
+    top.append(w)
+  end
+end
+
+def _next_name(prefix)
+  n = _CTX["next_id"]
+  _CTX["next_id"] = n + 1
+  "#{prefix}_#{n}"
+end
+
+def _apply_stylesheet(css)
+  if _CTX["win"] == nil
+    return nil
+  end
+  provider = gtk.new_css_provider()
+  provider.load_from_string(_to_text(css))
+  style_ctx = _CTX["win"].get_style_context()
+  if style_ctx != nil
+    style_ctx.add_provider(provider, 600)
+    _CTX["css_provider"] = provider
+  end
+end
+
+def _apply_props(widget, props)
+  if props == nil
+    return nil
+  end
+  w = _raw_widget(widget)
+  if w == nil
+    return nil
+  end
+
+  if props["id"] != nil
+    w.set_name(_to_text(props["id"]))
+  end
+
+  req_w = nil
+  req_h = nil
+  if props["width"] != nil
+    req_w = props["width"]
+  end
+  if props["height"] != nil
+    req_h = props["height"]
+  end
+  if req_w == nil && props["min_width"] != nil
+    req_w = props["min_width"]
+  end
+  if req_h == nil && props["min_height"] != nil
+    req_h = props["min_height"]
+  end
+  if req_w == nil && props["max_width"] != nil
+    req_w = props["max_width"]
+  end
+  if req_h == nil && props["max_height"] != nil
+    req_h = props["max_height"]
+  end
+  if req_w != nil || req_h != nil
+    rw = -1
+    rh = -1
+    if req_w != nil
+      rw = req_w
+    end
+    if req_h != nil
+      rh = req_h
+    end
+    w.set_size_request(rw, rh)
+  end
+
+  if props["visible"] != nil
+    w.set_visible(props["visible"])
+  end
+  if props["enabled"] != nil
+    w.set_sensitive(props["enabled"])
+  end
+  if props["tooltip"] != nil
+    w.set_tooltip_text(_to_text(props["tooltip"]))
+  end
+
+  if props["margins"] != nil
+    m = props["margins"]
+    if len(m) == 4
+      w.set_margin_start(m[0])
+      w.set_margin_top(m[1])
+      w.set_margin_end(m[2])
+      w.set_margin_bottom(m[3])
+    end
+    if len(m) == 2
+      w.set_margin_start(m[0])
+      w.set_margin_top(m[1])
+      w.set_margin_end(m[0])
+      w.set_margin_bottom(m[1])
+    end
+  end
+
+  if props["align"] != nil
+    a = _to_text(props["align"])
+    if a == "left"
+      w.set_halign(gtk.align_start_value)
+    end
+    if a == "center"
+      w.set_halign(gtk.align_center_value)
+    end
+    if a == "right"
+      w.set_halign(gtk.align_end_value)
+    end
+  end
+
+  if props["css"] != nil
+    name = w.get_name()
+    if name == ""
+      name = _next_name("cute")
+      w.set_name(name)
+    end
+    css_body = _to_text(props["css"])
+    css = "##{name} { #{css_body} }"
+    provider = gtk.new_css_provider()
+    provider.load_from_string(css)
+    style_ctx = w.get_style_context()
+    if style_ctx != nil
+      style_ctx.add_provider(provider, 600)
+    end
+  end
+end
+
+def _box(orientation, arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+
+  spacing = 0
+  if p != nil && p["spacing"] != nil
+    spacing = p["spacing"]
+  end
+
+  box = gtk.new_box(orientation, spacing)
+  _apply_props(box, p)
+  _add(box)
+  _push(box)
+  if block != nil
+    block()
+  end
+  _pop()
+  box
+end
+
+def _clear_box(layout)
+  lay = _raw_widget(layout)
+  if lay == nil
+    return nil
+  end
+  child = lay.get_first_child()
+  while child != nil
+    nxt = child.get_next_sibling()
+    lay.remove(child)
+    child = nxt
+  end
+end
+
+def _timer_handle(id)
+  h = {}
+  h["__id__"] = id
+  h["stop"] = fn()
+    _glib.source_remove(id)
+  end
+  h
+end
+
+def _has_mask(state, mask)
+  s = try conv.to_i(_to_text(state)) or 0
+  m = try conv.to_i(_to_text(mask)) or 0
+  if m == 0
+    return false
+  end
+  ((s / m) % 2) == 1
+end
+
+def _shortcut_spec(key)
+  spec = {ctrl: false, alt: false, shift: false, key: ""}
+  k = _to_text(key)
+
+  if str.starts_with(k, "Ctrl+")
+    spec["ctrl"] = true
+    k = _to_text(str.replace(k, "Ctrl+", ""))
+  end
+  if str.starts_with(k, "Alt+")
+    spec["alt"] = true
+    k = _to_text(str.replace(k, "Alt+", ""))
+  end
+  if str.starts_with(k, "Shift+")
+    spec["shift"] = true
+    k = _to_text(str.replace(k, "Shift+", ""))
+  end
+
+  if k == "+"
+    k = _to_text(str.replace(k, "+", "plus"))
+  end
+  if k == "-"
+    k = _to_text(str.replace(k, "-", "minus"))
+  end
+
+  spec["key"] = k
+  spec
+end
+
+def _canvas_ctx(cairo_ctx, width, height)
+  ctx = {}
+  if cairo_ctx == nil
+    ctx["fill"] = fn(color) nil end
+    ctx["line"] = fn(x1, y1, x2, y2, color = nil) nil end
+    ctx["text"] = fn(x, y, value, color = nil) nil end
+    return ctx
+  end
+  ptr = cairo_ctx.go_pointer()
+  ctx["fill"] = fn(color)
+    _cairoops.fill(ptr, width, height, _to_text(color))
+  end
+  ctx["line"] = fn(x1, y1, x2, y2, color = nil)
+    c = ""
+    if color != nil
+      c = _to_text(color)
+    end
+    _cairoops.line(ptr, x1, y1, x2, y2, c)
+  end
+  ctx["text"] = fn(x, y, value, color = nil)
+    c = ""
+    if color != nil
+      c = _to_text(color)
+    end
+    _cairoops.text(ptr, x, y, _to_text(value), c)
+  end
+  ctx
+end
+
+# -- App lifecycle ------------------------------------------------------------
+
+def app(title, width, height, block)
+  _CTX["app"] = gtk.new_application(
+    "io.github.rubiojr.cute.gtk",
+    0
+  )
+
+  activate_cb = fn(app_evt)
+    _CTX["win"] = gtk.new_application_window(_CTX["app"])
+    _CTX["win"].set_title(_to_text(title))
+    _CTX["win"].set_default_size(width, height)
+    _CTX["shortcut_controller"] = nil
+    _CTX["shortcut_key_controller"] = nil
+    _CTX["shortcut_handlers"] = []
+
+    root = gtk.new_box(gtk.orientation_vertical_value, 0)
+    _CTX["win"].set_child(_to_widget(root))
+    _CTX["stack"] = [root]
+
+    if block != nil
+      block()
+    end
+
+    _CTX["stack"] = []
+    _CTX["win"].present()
+  end
+
+  _CTX["app"].connect_activate(activate_cb)
+  _CTX["app"].run(0, [])
+end
+
+def quit()
+  if _CTX["app"] != nil
+    _CTX["app"].quit()
+  end
+end
+
+def window()
+  _CTX["win"]
+end
+
+def stylesheet(css_or_state)
+  if _state.is_state(css_or_state)
+    _apply_stylesheet(css_or_state.get())
+    css_or_state.on(fn(v)
+      _apply_stylesheet(v)
+    end)
+  else
+    _apply_stylesheet(css_or_state)
+  end
+end
+
+def alert(title, message)
+  nil
+end
+
+def confirm(title, message)
+  false
+end
+
+# -- State --------------------------------------------------------------------
+
+def state(initial)                          _state.state(initial) end
+def computed(source, transform)             _state.computed(source, transform) end
+
+def bind(s, widget, prop, transform = nil)
+  w = _raw_widget(widget)
+  apply = fn(v)
+    value = v
+    if transform != nil
+      value = transform(v)
+    end
+    if prop == "text"
+      w.set_text(_to_text(value))
+    end
+    if prop == "visible"
+      w.set_visible(value)
+    end
+  end
+  apply(s.get())
+  s.on(apply)
+end
+
+def props(widget, p)
+  _apply_props(widget, p)
+  widget
+end
+
+# -- Layouts ------------------------------------------------------------------
+
+def vbox(arg1 = nil, arg2 = nil)
+  _box(gtk.orientation_vertical_value, arg1, arg2)
+end
+
+def hbox(arg1 = nil, arg2 = nil)
+  _box(gtk.orientation_horizontal_value, arg1, arg2)
+end
+
+def scroll(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+
+  area = gtk.new_scrolled_window()
+  area.set_policy(gtk.policy_automatic_value, gtk.policy_automatic_value)
+  content = gtk.new_box(gtk.orientation_vertical_value, 0)
+  area.set_child(_to_widget(content))
+  _apply_props(area, p)
+  _add(area)
+
+  _push(content)
+  if block != nil
+    block()
+  end
+  _pop()
+
+  obj = {__widget__: area}
+  obj["vertical_scroll_bar"] = fn()
+    bar = {}
+    bar["maximum"] = fn()
+      adj = area.get_vadjustment()
+      if adj == nil
+        return 0
+      end
+      max_val = adj.get_upper() - adj.get_page_size()
+      if max_val < 0
+        max_val = 0
+      end
+      max_val
+    end
+    bar["value"] = fn()
+      adj = area.get_vadjustment()
+      if adj == nil
+        return 0
+      end
+      adj.get_value()
+    end
+    bar
+  end
+  obj["show"] = fn() area.show() end
+  obj["hide"] = fn() area.hide() end
+  obj
+end
+
+def container(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  spacing = 0
+  if p != nil && p["spacing"] != nil
+    spacing = p["spacing"]
+  end
+  box = gtk.new_box(gtk.orientation_vertical_value, spacing)
+  _apply_props(box, p)
+  _add(box)
+  _push(box)
+  if block != nil
+    block()
+  end
+  _pop()
+  box
+end
+
+def detached(layout, block)
+  lay = _raw_widget(layout)
+  if lay == nil
+    return nil
+  end
+
+  before = lay.get_last_child()
+  before_ptr = 0
+  if before != nil
+    before_ptr = before.go_pointer()
+  end
+
+  _push(lay)
+  if block != nil
+    block()
+  end
+  _pop()
+
+  after = lay.get_last_child()
+  if after == nil
+    return nil
+  end
+  if before_ptr != 0 && after.go_pointer() == before_ptr
+    return nil
+  end
+
+  lay.remove(after)
+  after.hide()
+  after
+end
+
+def flow(layout, items, cols, p = nil)
+  lay = _raw_widget(layout)
+  if lay == nil
+    return nil
+  end
+  _clear_box(lay)
+  if cols < 1
+    cols = 1
+  end
+
+  spacing = 0
+  if p != nil && p["spacing"] != nil
+    spacing = p["spacing"]
+  end
+
+  row = nil
+  col = 0
+  for item in items
+    if col == 0
+      row = gtk.new_box(gtk.orientation_horizontal_value, spacing)
+      lay.append(_to_widget(row))
+    end
+
+    w = _raw_widget(item)
+    if w != nil
+      if w.get_parent() != nil
+        w.unparent()
+      end
+      row.append(_to_widget(w))
+      w.show()
+    end
+
+    col += 1
+    if col >= cols
+      filler = gtk.new_box(gtk.orientation_horizontal_value, 0)
+      filler.set_hexpand(true)
+      row.append(_to_widget(filler))
+      row = nil
+      col = 0
+    end
+  end
+
+  if row != nil
+    filler = gtk.new_box(gtk.orientation_horizontal_value, 0)
+    filler.set_hexpand(true)
+    row.append(_to_widget(filler))
+  end
+
+  lay
+end
+
+# -- Widgets ------------------------------------------------------------------
+
+def label(text_or_state, arg2 = nil, arg3 = nil)
+  if _state.is_state(text_or_state)
+    transform = arg2
+    p = arg3
+    initial = text_or_state.get()
+    if transform != nil
+      initial = transform(initial)
+    end
+    lbl = gtk.new_label(_to_text(initial))
+    if p != nil && p["wrap"] != nil
+      lbl.set_wrap(p["wrap"])
+    end
+    _apply_props(lbl, p)
+    text_or_state.on(fn(v)
+      value = v
+      if transform != nil
+        value = transform(v)
+      end
+      lbl.set_text(_to_text(value))
+    end)
+    _add(lbl)
+    return lbl
+  end
+
+  lbl = gtk.new_label(_to_text(text_or_state))
+  if arg2 != nil && arg2["wrap"] != nil
+    lbl.set_wrap(arg2["wrap"])
+  end
+  _apply_props(lbl, arg2)
+  _add(lbl)
+  lbl
+end
+
+def button(text, arg1 = nil, arg2 = nil)
+  p = nil
+  on_click = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_click = arg2
+  else
+    on_click = arg1
+    if on_click == nil
+      on_click = arg2
+    end
+  end
+
+  btn = gtk.new_button_with_label(_to_text(text))
+  _apply_props(btn, p)
+  if on_click != nil
+    btn.connect_clicked(fn(btn_evt)
+      on_click()
+    end)
+  end
+  _add(btn)
+  obj = {__widget__: btn}
+  obj["set_text"] = fn(value)
+    btn.set_label(_to_text(value))
+  end
+  obj["set_enabled"] = fn(v)
+    btn.set_sensitive(v)
+  end
+  obj["set_visible"] = fn(v)
+    if v
+      btn.show()
+    else
+      btn.hide()
+    end
+  end
+  obj["show"] = fn() btn.show() end
+  obj["hide"] = fn() btn.hide() end
+  obj["set_tool_tip"] = fn(value)
+    btn.set_tooltip_text(_to_text(value))
+  end
+  obj
+end
+
+def input(placeholder = "", p = nil)
+  inp = gtk.new_entry()
+  if placeholder != nil
+    inp.set_placeholder_text(_to_text(placeholder))
+  end
+  _apply_props(inp, p)
+
+  if p != nil && p["state"] != nil
+    bound = p["state"]
+    syncing = {v: false}
+
+    initial = bound.get()
+    if initial != nil && initial != ""
+      inp.set_text(_to_text(initial))
+    end
+
+    inp.connect_signal("changed", fn()
+      if syncing["v"] == false
+        syncing["v"] = true
+        bound.set(inp.get_text())
+        syncing["v"] = false
+      end
+    end)
+
+    bound.on(fn(v)
+      if syncing["v"] == false
+        syncing["v"] = true
+        inp.set_text(_to_text(v))
+        syncing["v"] = false
+      end
+    end)
+  end
+
+  _add(inp)
+  inp
+end
+
+def spacer()
+  top = _current()
+  if top != nil
+    s = gtk.new_box(gtk.orientation_horizontal_value, 0)
+    s.set_hexpand(true)
+    top.append(_to_widget(s))
+  end
+end
+
+def separator()
+  line = gtk.new_separator(gtk.orientation_horizontal_value)
+  _add(line)
+  line
+end
+
+def combo(items, arg1 = nil, arg2 = nil)
+  p = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+    if on_change == nil
+      on_change = arg2
+    end
+  end
+
+  cb = gtk.new_combo_box_text()
+  for item in items
+    cb.append_text(_to_text(item))
+  end
+  if len(items) > 0
+    cb.set_active(0)
+  end
+  if on_change != nil
+    cb.connect_changed(fn(combo_evt)
+      on_change(_to_text(cb.get_active_text()))
+    end)
+  end
+  _apply_props(cb, p)
+  _add(cb)
+  cb
+end
+
+def list_widget(p = nil)
+  lw = gtk.new_list_box()
+  _apply_props(lw, p)
+  _add(lw)
+  lw
+end
+
+def list(items_state, render_fn, on_select = nil)
+  area = gtk.new_scrolled_window()
+  area.set_policy(gtk.policy_automatic_value, gtk.policy_automatic_value)
+  area.set_hexpand(true)
+  area.set_vexpand(true)
+  lw = gtk.new_list_box()
+  lw.set_selection_mode(gtk.selection_single_value)
+  area.set_child(_to_widget(lw))
+  selected_idx = -1
+  row_ptr_to_idx = {}
+
+  populate = fn(items)
+    lw.remove_all()
+    row_ptr_to_idx = {}
+    selected_idx = -1
+    i = 0
+    for item in items
+      row = gtk.new_list_box_row()
+      lbl = gtk.new_label(_to_text(render_fn(item, i)))
+      lbl.set_xalign(0.0)
+      row.set_child(_to_widget(lbl))
+      lw.append(_to_widget(row))
+      row_ptr_to_idx["#{row.go_pointer()}"] = i
+      i += 1
+    end
+  end
+
+  populate(items_state.get())
+  items_state.on(populate)
+
+  if on_select != nil
+    lw.connect_row_selected(fn(box_evt, row_ptr)
+      idx = -1
+      if row_ptr != nil && row_ptr != 0
+        mapped = row_ptr_to_idx["#{row_ptr}"]
+        if mapped != nil
+          idx = mapped
+        end
+      end
+      selected_idx = idx
+      on_select(idx)
+    end)
+  end
+
+  _add(area)
+
+  obj = {__widget__: area}
+  obj["current_row"] = fn()
+    selected_idx
+  end
+  obj["set_current_row"] = fn(idx)
+    selected_idx = -1
+    row = lw.get_row_at_index(idx)
+    if row != nil
+      lw.select_row(row)
+      selected_idx = idx
+    end
+  end
+  obj["on_item_double_clicked"] = fn(callback)
+    if callback != nil
+      lw.connect_row_activated(fn(box_evt, row_ptr)
+        callback(nil)
+      end)
+    end
+  end
+  obj["show"] = fn() area.show() end
+  obj["hide"] = fn() area.hide() end
+  obj
+end
+
+def image(p = nil)
+  img = gtk.new_image()
+  if p != nil && p["placeholder"] != nil
+    img.set_tooltip_text(_to_text(p["placeholder"]))
+  end
+  _apply_props(img, p)
+  _add(img)
+
+  obj = {__widget__: img}
+  obj["set_pixmap"] = fn(pm)
+    if pm != nil
+      img.set_from_paintable(pm)
+    end
+  end
+  obj["clear"] = fn()
+    img.clear()
+  end
+  obj["show"] = fn() img.show() end
+  obj["hide"] = fn() img.hide() end
+  obj
+end
+
+def load_pixmap(data)
+  if data == nil
+    return nil
+  end
+  bytes = _glib.new_bytes(data, len(data))
+  try gdk.new_texture_from_bytes(bytes) or nil
+end
+
+# -- Events -------------------------------------------------------------------
+
+def shortcut(key, callback)
+  if _CTX["win"] == nil || callback == nil
+    return nil
+  end
+
+  spec = _shortcut_spec(key)
+  key_name = spec["key"]
+  keyval = gdk.keyval_from_name(key_name)
+  if keyval == 0
+    keyval = gdk.keyval_from_name(str.lower(key_name))
+  end
+  if keyval == 0
+    return nil
+  end
+
+  handler = {
+    keyval: keyval,
+    ctrl: spec["ctrl"],
+    alt: spec["alt"],
+    shift: spec["shift"],
+    callback: callback
+  }
+  _CTX["shortcut_handlers"] = append(_CTX["shortcut_handlers"], handler)
+
+  key_controller = _CTX["shortcut_key_controller"]
+  if key_controller == nil
+    key_controller = gtk.new_event_controller_key()
+    key_controller.connect_key_pressed(fn(controller_evt, pressed_keyval, keycode, state)
+      handled = false
+      ctrl_on = _has_mask(state, gdk.control_mask_value)
+      alt_on = _has_mask(state, gdk.alt_mask_value)
+      shift_on = _has_mask(state, gdk.shift_mask_value)
+      for h in _CTX["shortcut_handlers"]
+        if pressed_keyval == h["keyval"]
+          exact = true
+          if h["ctrl"] != ctrl_on
+            exact = false
+          end
+          if h["alt"] != alt_on
+            exact = false
+          end
+          if h["shift"] != shift_on
+            exact = false
+          end
+          if exact
+            h["callback"]()
+            handled = true
+            break
+          end
+        end
+      end
+      handled
+    end)
+    _CTX["win"].add_controller(_to_event_controller(key_controller))
+    _CTX["shortcut_key_controller"] = key_controller
+  end
+
+  obj = {key: key_name, keyval: keyval}
+  obj["activate"] = fn()
+    callback()
+  end
+  obj
+end
+
+def after(ms, callback)
+  source = fn(data_ptr)
+    callback()
+    false
+  end
+  id = _glib.timeout_add(ms, source, 0)
+  _timer_handle(id)
+end
+
+def timer(ms, callback)
+  source = fn(data_ptr)
+    callback()
+    true
+  end
+  id = _glib.timeout_add(ms, source, 0)
+  _timer_handle(id)
+end
+
+def on_resize(widget, callback, interval_ms = 200)
+  w = _raw_widget(widget)
+  if w == nil
+    return nil
+  end
+  last_w = w.get_width()
+  last_h = w.get_height()
+  timer(interval_ms, fn()
+    cw = w.get_width()
+    ch = w.get_height()
+    if cw != last_w || ch != last_h
+      last_w = cw
+      last_h = ch
+      callback(cw, ch)
+    end
+  end)
+end
+
+def on_double_click(widget, callback)
+  w = _raw_widget(widget)
+  if w == nil
+    return nil
+  end
+  gesture = gtk.new_gesture_click()
+  gesture.connect_pressed(fn(gesture_evt, n_press, x, y)
+    if n_press == 2
+      callback()
+    end
+  end)
+  w.add_controller(_to_event_controller(gesture))
+  gesture
+end
+
+# -- Threading ----------------------------------------------------------------
+
+def ui(callback)
+  source = fn(data_ptr)
+    callback()
+    false
+  end
+  _glib.idle_add(source, 0)
+end
+
+def fetch(work, on_done)
+  spawn
+    result = work()
+    source = fn(data_ptr)
+      if on_done != nil
+        on_done(result)
+      end
+      false
+    end
+    _glib.idle_add(source, 0)
+  end
+end
+
+# -- Canvas -------------------------------------------------------------------
+
+def canvas(arg1 = nil, arg2 = nil)
+  p = nil
+  draw_fn = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    draw_fn = arg2
+  else
+    draw_fn = arg1
+  end
+
+  area = gtk.new_drawing_area()
+  if p != nil && p["width"] != nil
+    area.set_content_width(p["width"])
+  end
+  if p != nil && p["height"] != nil
+    area.set_content_height(p["height"])
+  end
+  if p != nil && p["min_height"] != nil
+    area.set_content_height(p["min_height"])
+  end
+  _apply_props(area, p)
+  _add(area)
+
+  if draw_fn != nil
+    bound_state = nil
+    if p != nil && p["state"] != nil
+      bound_state = p["state"]
+    end
+    area.set_draw_func(fn(area_ptr, cairo_ctx, w, h, user_data)
+      state_value = nil
+      if bound_state != nil
+        state_value = bound_state.get()
+      end
+      draw_fn(_canvas_ctx(cairo_ctx, w, h), {width: w, height: h}, state_value)
+    end, 0, nil)
+    if bound_state != nil
+      bound_state.on(fn(v)
+        area.queue_draw()
+      end)
+    end
+  end
+
+  area
+end
+
+def canvas_frame(width, height, bg = nil)
+  {width: width, height: height, bg: bg, ops: []}
+end
+
+def canvas_fill(frame, color)
+  frame["ops"] = append(frame["ops"], {op: "fill", color: color})
+end
+
+def canvas_line(frame, x1, y1, x2, y2, color = nil)
+  frame["ops"] = append(frame["ops"], {
+    op: "line",
+    x1: x1,
+    y1: y1,
+    x2: x2,
+    y2: y2,
+    color: color
+  })
+end
+
+def canvas_text(frame, x, y, value, color = nil)
+  frame["ops"] = append(frame["ops"], {
+    op: "text",
+    x: x,
+    y: y,
+    value: value,
+    color: color
+  })
+end
+
+def canvas_commit(widget, frame)
+  w = _raw_widget(widget)
+  if w != nil
+    w.queue_draw()
+  end
+end

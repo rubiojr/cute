@@ -1,0 +1,99 @@
+use "str"
+
+THEME = <<~'CSS'
+  window, box, list, row, scrolledwindow {
+    font-family: sans-serif;
+    font-size: 13px;
+    background-color: #f6f6ef;
+    color: #1f1f1f;
+  }
+  button, combobox, combobox box {
+    padding: 4px 12px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background-color: transparent;
+    color: #2b2b2b;
+  }
+  button:hover, combobox:hover, combobox box:hover {
+    color: #ff6600;
+    border-color: #ff6600;
+  }
+  list {
+    background-color: #f6f6ef;
+  }
+  row {
+    padding: 10px 12px;
+    border: 1px solid #e0ddd5;
+  }
+  row:selected {
+    background-color: #fff3e0;
+    color: #111111;
+  }
+  row:hover {
+    background-color: #f0ede5;
+  }
+  popover listview,
+  popover box,
+  popover row {
+    background-color: #fff3e0;
+    color: #333333;
+  }
+  popover row:selected,
+  popover row:hover {
+    background-color: #ff6600;
+    color: #ffffff;
+  }
+CSS
+
+THEME_DARK = <<~'CSS'
+  window, box, list, row, scrolledwindow {
+    font-family: sans-serif;
+    font-size: 13px;
+    background-color: #1c1a17;
+    color: #d4c5a9;
+  }
+  button, combobox, combobox box {
+    padding: 4px 12px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background-color: transparent;
+    color: #d4c5a9;
+  }
+  button:hover, combobox:hover, combobox box:hover {
+    color: #ff6600;
+    border-color: #ff6600;
+  }
+  list {
+    background-color: #1c1a17;
+  }
+  row {
+    padding: 10px 12px;
+    border: 1px solid #2e2a25;
+  }
+  row:selected {
+    background-color: #3a2e1e;
+    color: #ffcc80;
+  }
+  row:hover {
+    background-color: #252220;
+  }
+  popover listview,
+  popover box,
+  popover row {
+    background-color: #2a2520;
+    color: #d4c5a9;
+  }
+  popover row:selected,
+  popover row:hover {
+    background-color: #ff6600;
+    color: #ffffff;
+  }
+CSS
+
+def css(size)
+  return str.replace(THEME, "font-size: 13px", "font-size: #{size}px")
+end
+
+def dark(size)
+  return str.replace(THEME_DARK, "font-size: 13px", "font-size: #{size}px")
+end

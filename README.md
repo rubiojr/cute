@@ -36,6 +36,25 @@ cute.app("Counter", 400, 300) do
 end
 ```
 
+## Backend selection (compile-time)
+
+Cute keeps the Qt backend as the default module entry point:
+
+```ruby
+require "github.com/rubiojr/cute@v0.3.1" as "cute"
+```
+
+An experimental pure-Rugo GTK backend spike is available as a separate module path:
+
+```ruby
+require "github.com/rubiojr/cute/gtk@v0.3.1" as "cute"
+```
+
+Current status: the spike code exists, but building puregotk through the
+current Rugo Go bridge is still failing (pointer/upcast wrapper generation).
+The GTK module is kept as an implementation scaffold while this upstream
+compiler compatibility issue is addressed.
+
 ## Tutorial
 
 1. [Getting Started](docs/01-getting-started.md) — Prerequisites, hello world, build & run
@@ -52,5 +71,6 @@ end
 - [Hacker News Reader](examples/cute_hackernews/) — Full app with networking, lists, and threading
 - [Composite Widget](examples/composite_widget/) — Reusable custom widget via composition
 - [Canvas](examples/canvas/) — `cute.canvas(props, draw_fn)` custom drawing surface
+- [GTK Spike](examples/gtk_spike/) — Compile-time backend experiment scaffold (currently blocked by Rugo bridge compatibility)
 
 ![](/images/shot.png)
