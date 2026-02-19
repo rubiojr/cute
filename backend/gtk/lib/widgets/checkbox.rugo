@@ -1,0 +1,29 @@
+# Checkbox widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+def checkbox(text, arg1 = nil, arg2 = nil)
+  p = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+    if on_change == nil
+      on_change = arg2
+    end
+  end
+
+  cb = gtk.new_check_button()
+  cb.set_label(_ctx.to_text(text))
+  _props.apply(cb, p)
+  if on_change != nil
+    cb.connect_toggled(fn(cb_evt)
+      on_change(cb.get_active())
+    end)
+  end
+  _ctx.add(cb)
+  cb
+end

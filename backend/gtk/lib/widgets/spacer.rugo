@@ -1,0 +1,12 @@
+# Spacer widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+
+def spacer()
+  top = _ctx.current()
+  if top != nil
+    s = gtk.new_box(gtk.orientation_horizontal_value, 0)
+    s.set_hexpand(true)
+    top.append(_ctx.to_widget(s))
+  end
+end

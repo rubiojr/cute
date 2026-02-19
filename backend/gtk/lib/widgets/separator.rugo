@@ -1,0 +1,9 @@
+# Separator widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+
+def separator()
+  line = gtk.new_separator(gtk.orientation_horizontal_value)
+  _ctx.add(line)
+  line
+end

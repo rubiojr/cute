@@ -1,0 +1,5 @@
+# Progress widget for Cute GTK backend (stub)
+
+def progress(p = nil)
+  nil
+end

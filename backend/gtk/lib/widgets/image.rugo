@@ -1,0 +1,34 @@
+# Image widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+def image(p = nil)
+  img = gtk.new_image()
+  if p != nil && p["placeholder"] != nil
+    img.set_tooltip_text(_ctx.to_text(p["placeholder"]))
+  end
+  _props.apply(img, p)
+  _ctx.add(img)
+
+  obj = {__widget__: img}
+  obj["set_pixmap"] = fn(pm)
+    if pm != nil
+      img.set_from_paintable(pm)
+    end
+  end
+  obj["clear"] = fn()
+    img.clear()
+  end
+  obj["show"] = fn() img.show() end
+  obj["hide"] = fn() img.hide() end
+  obj
+end
+
+def load_pixmap(data)
+  if data == nil
+    return nil
+  end
+  bytes = _glib.new_bytes(data, len(data))
+  try gdk.new_texture_from_bytes(bytes) or nil
+end

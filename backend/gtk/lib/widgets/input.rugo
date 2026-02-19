@@ -1,0 +1,41 @@
+# Input widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+def input(placeholder = "", p = nil)
+  inp = gtk.new_entry()
+  if placeholder != nil
+    inp.set_placeholder_text(_ctx.to_text(placeholder))
+  end
+  _props.apply(inp, p)
+
+  if p != nil && p["state"] != nil
+    bound = p["state"]
+    syncing = {v: false}
+
+    initial = bound.get()
+    if initial != nil && initial != ""
+      inp.set_text(_ctx.to_text(initial))
+    end
+
+    inp.connect_signal("changed", fn()
+      if syncing["v"] == false
+        syncing["v"] = true
+        bound.set(inp.get_text())
+        syncing["v"] = false
+      end
+    end)
+
+    bound.on(fn(v)
+      if syncing["v"] == false
+        syncing["v"] = true
+        inp.set_text(_ctx.to_text(v))
+        syncing["v"] = false
+      end
+    end)
+  end
+
+  _ctx.add(inp)
+  inp
+end

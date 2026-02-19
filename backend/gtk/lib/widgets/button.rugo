@@ -1,0 +1,47 @@
+# Button widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+def button(text, arg1 = nil, arg2 = nil)
+  p = nil
+  on_click = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_click = arg2
+  else
+    on_click = arg1
+    if on_click == nil
+      on_click = arg2
+    end
+  end
+
+  btn = gtk.new_button_with_label(_ctx.to_text(text))
+  _props.apply(btn, p)
+  if on_click != nil
+    btn.connect_clicked(fn(btn_evt)
+      on_click()
+    end)
+  end
+  _ctx.add(btn)
+  obj = {__widget__: btn}
+  obj["set_text"] = fn(value)
+    btn.set_label(_ctx.to_text(value))
+  end
+  obj["set_enabled"] = fn(v)
+    btn.set_sensitive(v)
+  end
+  obj["set_visible"] = fn(v)
+    if v
+      btn.show()
+    else
+      btn.hide()
+    end
+  end
+  obj["show"] = fn() btn.show() end
+  obj["hide"] = fn() btn.hide() end
+  obj["set_tool_tip"] = fn(value)
+    btn.set_tooltip_text(_ctx.to_text(value))
+  end
+  obj
+end

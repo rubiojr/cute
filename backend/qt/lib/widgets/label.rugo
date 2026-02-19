@@ -2,7 +2,7 @@
 
 require "../ctx" as "_ctx"
 require "../props" as "_props"
-require "../state" as "_state"
+require "../../../../lib/state" as "_state"
 
 # Text label. Returns QLabel handle.
 #

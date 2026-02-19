@@ -1,0 +1,38 @@
+# Label widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+require "../../../../lib/state" as "_state"
+
+def label(text_or_state, arg2 = nil, arg3 = nil)
+  if _state.is_state(text_or_state)
+    transform = arg2
+    p = arg3
+    initial = text_or_state.get()
+    if transform != nil
+      initial = transform(initial)
+    end
+    lbl = gtk.new_label(_ctx.to_text(initial))
+    if p != nil && p["wrap"] != nil
+      lbl.set_wrap(p["wrap"])
+    end
+    _props.apply(lbl, p)
+    text_or_state.on(fn(v)
+      value = v
+      if transform != nil
+        value = transform(v)
+      end
+      lbl.set_text(_ctx.to_text(value))
+    end)
+    _ctx.add(lbl)
+    return lbl
+  end
+
+  lbl = gtk.new_label(_ctx.to_text(text_or_state))
+  if arg2 != nil && arg2["wrap"] != nil
+    lbl.set_wrap(arg2["wrap"])
+  end
+  _props.apply(lbl, arg2)
+  _ctx.add(lbl)
+  lbl
+end

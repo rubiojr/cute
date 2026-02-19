@@ -1,0 +1,81 @@
+# List widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+def list_widget(p = nil)
+  lw = gtk.new_list_box()
+  _props.apply(lw, p)
+  _ctx.add(lw)
+  lw
+end
+
+def list(items_state, render_fn, on_select = nil)
+  area = gtk.new_scrolled_window()
+  area.set_policy(gtk.policy_automatic_value, gtk.policy_automatic_value)
+  area.set_hexpand(true)
+  area.set_vexpand(true)
+  lw = gtk.new_list_box()
+  lw.set_selection_mode(gtk.selection_single_value)
+  area.set_child(_ctx.to_widget(lw))
+  selected_idx = -1
+  row_ptr_to_idx = {}
+
+  populate = fn(items)
+    lw.remove_all()
+    row_ptr_to_idx = {}
+    selected_idx = -1
+    i = 0
+    for item in items
+      row = gtk.new_list_box_row()
+      lbl = gtk.new_label(_ctx.to_text(render_fn(item, i)))
+      lbl.set_xalign(0.0)
+      row.set_child(_ctx.to_widget(lbl))
+      lw.append(_ctx.to_widget(row))
+      row_ptr_to_idx["#{row.go_pointer()}"] = i
+      i += 1
+    end
+  end
+
+  populate(items_state.get())
+  items_state.on(populate)
+
+  if on_select != nil
+    lw.connect_row_selected(fn(box_evt, row_ptr)
+      idx = -1
+      if row_ptr != nil && row_ptr != 0
+        mapped = row_ptr_to_idx["#{row_ptr}"]
+        if mapped != nil
+          idx = mapped
+        end
+      end
+      selected_idx = idx
+      on_select(idx)
+    end)
+  end
+
+  _ctx.add(area)
+
+  obj = {__widget__: area}
+  obj["current_row"] = fn()
+    selected_idx
+  end
+  obj["set_current_row"] = fn(idx)
+    selected_idx = -1
+    row = lw.get_row_at_index(idx)
+    if row != nil
+      lw.select_row(row)
+      selected_idx = idx
+    end
+  end
+  obj["on_item_double_clicked"] = fn(callback)
+    if callback != nil
+      lw.connect_row_activated(fn(box_evt, row_ptr)
+        callback(nil)
+      end)
+    end
+  end
+  obj["show"] = fn() area.show() end
+  obj["hide"] = fn() area.hide() end
+  obj
+end

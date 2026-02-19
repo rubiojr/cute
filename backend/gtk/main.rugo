@@ -1,0 +1,245 @@
+# Cute GTK4 backend
+#
+# Wraps GTK4 widgets through puregotk Go bindings into the Cute
+# declarative API.
+#
+# Usage:
+#   require "github.com/rubiojr/cute/backend/gtk" as "cute"
+#
+# Prerequisites:
+#   - GTK4 runtime libraries
+#   - Go 1.22+
+#   - puregotk: fetched automatically on first build
+
+require "github.com/jwijenbergh/puregotk/v4/gtk@main" as "gtk"
+require "github.com/jwijenbergh/puregotk/v4/gdk@main" as "gdk"
+require "github.com/jwijenbergh/puregotk/v4/glib@main" as "_glib"
+require "../../lib/state" as "_state"
+require "../../lib/style" as "_style"
+require "lib/ctx" as "_ctx"
+require "lib/props" as "_props"
+require "lib/layouts" as "_layouts"
+require "lib/events" as "_events"
+require "lib/threading" as "_threading"
+require "lib/widgets/label" as "_label"
+require "lib/widgets/button" as "_button"
+require "lib/widgets/input" as "_input"
+require "lib/widgets/checkbox" as "_checkbox"
+require "lib/widgets/spacer" as "_spacer"
+require "lib/widgets/separator" as "_separator"
+require "lib/widgets/combo" as "_combo"
+require "lib/widgets/list" as "_list"
+require "lib/widgets/image" as "_image"
+require "lib/widgets/canvas" as "_canvas"
+require "lib/widgets/text_area" as "_text_area"
+require "lib/widgets/progress" as "_progress"
+require "lib/widgets/slider" as "_slider"
+
+# -- App lifecycle ------------------------------------------------------------
+
+# Creates a Cute application window and runs the event loop.
+def app(title, width, height, block)
+  _ctx.set_app(gtk.new_application(
+    "io.github.rubiojr.cute.gtk",
+    0
+  ))
+
+  activate_cb = fn(app_evt)
+    _ctx.set_window(gtk.new_application_window(_ctx.app()))
+    _ctx.window().set_title(_ctx.to_text(title))
+    _ctx.window().set_default_size(width, height)
+    _ctx.reset_for_activate()
+
+    root = gtk.new_box(gtk.orientation_vertical_value, 0)
+    _ctx.window().set_child(_ctx.to_widget(root))
+    _ctx.set_stack([root])
+
+    if block != nil
+      block()
+    end
+
+    _ctx.set_stack([])
+    _ctx.window().present()
+  end
+
+  _ctx.app().connect_activate(activate_cb)
+  _ctx.app().run(0, [])
+end
+
+# Quit the application.
+def quit()
+  if _ctx.app() != nil
+    _ctx.app().quit()
+  end
+end
+
+# Access the raw window handle.
+def window()
+  _ctx.window()
+end
+
+# Apply a stylesheet (CSS) to the entire window.
+def stylesheet(css_or_state)
+  if _state.is_state(css_or_state)
+    _apply_stylesheet(css_or_state.get())
+    css_or_state.on(fn(v)
+      _apply_stylesheet(v)
+    end)
+  else
+    _apply_stylesheet(css_or_state)
+  end
+end
+
+def _apply_stylesheet(css)
+  if _ctx.window() == nil
+    return nil
+  end
+  provider = gtk.new_css_provider()
+  provider.load_from_string(_ctx.to_text(css))
+  style_ctx = _ctx.window().get_style_context()
+  if style_ctx != nil
+    style_ctx.add_provider(provider, 600)
+  end
+end
+
+# Information dialog (stub).
+def alert(title, message)
+  nil
+end
+
+# Confirmation dialog (stub).
+def confirm(title, message)
+  false
+end
+
+# -- State --------------------------------------------------------------------
+
+def state(initial)                          _state.state(initial) end
+def computed(source, transform)             _state.computed(source, transform) end
+
+def bind(s, widget, prop, transform = nil)
+  w = _ctx.raw_widget(widget)
+  apply = fn(v)
+    value = v
+    if transform != nil
+      value = transform(v)
+    end
+    if prop == "text"
+      w.set_text(_ctx.to_text(value))
+    end
+    if prop == "visible"
+      w.set_visible(value)
+    end
+  end
+  apply(s.get())
+  s.on(apply)
+end
+
+# Applies a props hash to any widget. Returns the widget.
+def props(widget, p)
+  _props.apply(widget, p)
+  widget
+end
+
+# -- Style --------------------------------------------------------------------
+
+def style(p)                                _style.style(p) end
+
+# -- Widgets ------------------------------------------------------------------
+
+def label(text_or_state, arg2 = nil, arg3 = nil)
+  _label.label(text_or_state, arg2, arg3)
+end
+
+def button(text, arg1 = nil, arg2 = nil)
+  _button.button(text, arg1, arg2)
+end
+
+def input(placeholder = "", p = nil)        _input.input(placeholder, p) end
+def checkbox(text, arg1 = nil, arg2 = nil)  _checkbox.checkbox(text, arg1, arg2) end
+def spacer()                                _spacer.spacer() end
+def separator()                             _separator.separator() end
+
+def combo(items, arg1 = nil, arg2 = nil)
+  _combo.combo(items, arg1, arg2)
+end
+
+def list_widget(p = nil)                    _list.list_widget(p) end
+
+def list(items_state, render_fn, on_select = nil)
+  _list.list(items_state, render_fn, on_select)
+end
+
+def image(p = nil)                          _image.image(p) end
+def canvas(arg1 = nil, arg2 = nil)          _canvas.canvas(arg1, arg2) end
+def canvas_frame(width, height, bg = nil)   _canvas.frame(width, height, bg) end
+def canvas_fill(frame, color)               _canvas.fill(frame, color) end
+def canvas_line(frame, x1, y1, x2, y2, color = nil)
+  _canvas.line(frame, x1, y1, x2, y2, color)
+end
+def canvas_text(frame, x, y, value, color = nil)
+  _canvas.text(frame, x, y, value, color)
+end
+def canvas_commit(widget, frame)            _canvas.commit(widget, frame) end
+def load_pixmap(data)                       _image.load_pixmap(data) end
+def text_area(text = "", p = nil)           _text_area.text_area(text, p) end
+def progress(p = nil)                       _progress.progress(p) end
+
+def slider(min_val, max_val, arg1 = nil, arg2 = nil)
+  _slider.slider(min_val, max_val, arg1, arg2)
+end
+
+# -- Layouts ------------------------------------------------------------------
+
+def vbox(arg1 = nil, arg2 = nil)            _layouts.vbox(arg1, arg2) end
+def hbox(arg1 = nil, arg2 = nil)            _layouts.hbox(arg1, arg2) end
+
+def scroll(arg1 = nil, arg2 = nil)
+  _layouts.scroll(arg1, arg2)
+end
+
+def container(arg1 = nil, arg2 = nil)
+  _layouts.container(arg1, arg2)
+end
+
+def group(title, arg1 = nil, arg2 = nil)
+  nil
+end
+
+def tabs(arg1 = nil, arg2 = nil)
+  nil
+end
+
+def tab(title, arg1 = nil, arg2 = nil)
+  nil
+end
+
+def add_to(layout, block)                   _layouts.add_to(layout, block) end
+def clear_layout(layout)                    _layouts.clear_layout(layout) end
+def add_widget(layout, widget)              _layouts.add_widget(layout, widget) end
+def add_stretch(layout)                     _layouts.add_stretch(layout) end
+def new_hbox(p = nil)                       _layouts.new_hbox(p) end
+def detached(layout, block)                 _layouts.detached(layout, block) end
+
+def flow(layout, items, cols, p = nil)
+  _layouts.flow(layout, items, cols, p)
+end
+
+# -- Events -------------------------------------------------------------------
+
+def shortcut(key, callback)                 _events.shortcut(key, callback) end
+def after(ms, callback)                     _events.after(ms, callback) end
+def timer(ms, callback)                     _events.timer(ms, callback) end
+
+def on_resize(widget, callback, interval_ms = 200)
+  _events.on_resize(widget, callback, interval_ms)
+end
+
+def on_double_click(widget, callback)
+  _events.on_double_click(widget, callback)
+end
+
+# -- Threading ----------------------------------------------------------------
+
+def ui(callback)                            _threading.ui(callback) end
+def fetch(work, on_done)                    _threading.fetch(work, on_done) end

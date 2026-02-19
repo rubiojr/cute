@@ -1,0 +1,5 @@
+# Text area widget for Cute GTK backend (stub)
+
+def text_area(text = "", p = nil)
+  nil
+end

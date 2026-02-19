@@ -11,7 +11,10 @@
 #   - Qt6 dev libs (apt install qt6-base-dev)
 #   - Go 1.22+
 
-require "./../../" as cute
+require "./../../backend/qt" as cute
+# to use the GTK backend, use this instead
+#require "./../../backend/gtk" as cute
+
 require "theme"
 use "http"
 use "json"

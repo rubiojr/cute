@@ -1,0 +1,137 @@
+# Property application for Cute GTK backend
+#
+# Applies a props hash to any GTK widget, mapping
+# Cute property names to GTK setter calls.
+
+require "ctx" as "_ctx"
+
+# Applies a stylesheet to a specific widget by CSS name.
+def _apply_css(widget, css_body)
+  w = _ctx.raw_widget(widget)
+  if w == nil
+    return nil
+  end
+  name = w.get_name()
+  if name == ""
+    name = _ctx.next_name("cute")
+    w.set_name(name)
+  end
+  css = "##{name} { #{_ctx.to_text(css_body)} }"
+  provider = gtk.new_css_provider()
+  provider.load_from_string(css)
+  style_ctx = w.get_style_context()
+  if style_ctx != nil
+    style_ctx.add_provider(provider, 600)
+  end
+end
+
+# Applies a props hash to a GTK widget.
+#
+# Supported keys:
+#   id:         string  -- set_name
+#   width:      int     -- set_size_request (width)
+#   height:     int     -- set_size_request (height)
+#   min_width:  int     -- set_size_request (width)
+#   min_height: int     -- set_size_request (height)
+#   max_width:  int     -- constrain width (set_hexpand false, ellipsize)
+#   max_height: int     -- constrain height (set_vexpand false)
+#   visible:    bool    -- set_visible
+#   enabled:    bool    -- set_sensitive
+#   tooltip:    string  -- set_tooltip_text
+#   css:        string  -- per-widget CSS
+#   margins:    array   -- set_margin_start/top/end/bottom
+#   align:      string  -- set_halign ("left","center","right")
+def apply(widget, props)
+  if props == nil
+    return nil
+  end
+  w = _ctx.raw_widget(widget)
+  if w == nil
+    return nil
+  end
+
+  if props["id"] != nil
+    w.set_name(_ctx.to_text(props["id"]))
+  end
+
+  req_w = nil
+  req_h = nil
+  if props["width"] != nil
+    req_w = props["width"]
+  end
+  if props["height"] != nil
+    req_h = props["height"]
+  end
+  if req_w == nil && props["min_width"] != nil
+    req_w = props["min_width"]
+  end
+  if req_h == nil && props["min_height"] != nil
+    req_h = props["min_height"]
+  end
+  if req_w != nil || req_h != nil
+    rw = -1
+    rh = -1
+    if req_w != nil
+      rw = req_w
+    end
+    if req_h != nil
+      rh = req_h
+    end
+    w.set_size_request(rw, rh)
+  end
+
+  if props["visible"] != nil
+    w.set_visible(props["visible"])
+  end
+  if props["enabled"] != nil
+    w.set_sensitive(props["enabled"])
+  end
+  if props["tooltip"] != nil
+    w.set_tooltip_text(_ctx.to_text(props["tooltip"]))
+  end
+
+  if props["margins"] != nil
+    m = props["margins"]
+    if len(m) == 4
+      w.set_margin_start(m[0])
+      w.set_margin_top(m[1])
+      w.set_margin_end(m[2])
+      w.set_margin_bottom(m[3])
+    end
+    if len(m) == 2
+      w.set_margin_start(m[0])
+      w.set_margin_top(m[1])
+      w.set_margin_end(m[0])
+      w.set_margin_bottom(m[1])
+    end
+  end
+
+  if props["align"] != nil
+    a = _ctx.to_text(props["align"])
+    if a == "left"
+      w.set_halign(gtk.align_start_value)
+    end
+    if a == "center"
+      w.set_halign(gtk.align_center_value)
+    end
+    if a == "right"
+      w.set_halign(gtk.align_end_value)
+    end
+  end
+
+  if props["css"] != nil
+    _apply_css(widget, props["css"])
+  end
+
+  # max_width: prevent expansion and truncate with ellipsis for labels.
+  # GTK has no set_maximum_width; we stop hexpand and use ellipsize.
+  if props["max_width"] != nil
+    w.set_hexpand(false)
+    max_chars = props["max_width"] / 8
+    try w.set_max_width_chars(max_chars) or nil
+    try w.set_ellipsize(3) or nil
+  end
+  if props["max_height"] != nil
+    w.set_vexpand(false)
+  end
+end

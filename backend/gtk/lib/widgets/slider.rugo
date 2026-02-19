@@ -1,0 +1,5 @@
+# Slider widget for Cute GTK backend (stub)
+
+def slider(min_val, max_val, arg1 = nil, arg2 = nil)
+  nil
+end

@@ -1,0 +1,115 @@
+# Canvas widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+require "../../cairoops" as "_cairoops"
+
+def _canvas_ctx(cairo_ctx, width, height)
+  ctx = {}
+  if cairo_ctx == nil
+    ctx["fill"] = fn(color) nil end
+    ctx["line"] = fn(x1, y1, x2, y2, color = nil) nil end
+    ctx["text"] = fn(x, y, value, color = nil) nil end
+    return ctx
+  end
+  ptr = cairo_ctx.go_pointer()
+  ctx["fill"] = fn(color)
+    _cairoops.fill(ptr, width, height, _ctx.to_text(color))
+  end
+  ctx["line"] = fn(x1, y1, x2, y2, color = nil)
+    c = ""
+    if color != nil
+      c = _ctx.to_text(color)
+    end
+    _cairoops.line(ptr, x1, y1, x2, y2, c)
+  end
+  ctx["text"] = fn(x, y, value, color = nil)
+    c = ""
+    if color != nil
+      c = _ctx.to_text(color)
+    end
+    _cairoops.text(ptr, x, y, _ctx.to_text(value), c)
+  end
+  ctx
+end
+
+def canvas(arg1 = nil, arg2 = nil)
+  p = nil
+  draw_fn = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    draw_fn = arg2
+  else
+    draw_fn = arg1
+  end
+
+  area = gtk.new_drawing_area()
+  if p != nil && p["width"] != nil
+    area.set_content_width(p["width"])
+  end
+  if p != nil && p["height"] != nil
+    area.set_content_height(p["height"])
+  end
+  if p != nil && p["min_height"] != nil
+    area.set_content_height(p["min_height"])
+  end
+  _props.apply(area, p)
+  _ctx.add(area)
+
+  if draw_fn != nil
+    bound_state = nil
+    if p != nil && p["state"] != nil
+      bound_state = p["state"]
+    end
+    area.set_draw_func(fn(area_ptr, cairo_ctx, w, h, user_data)
+      state_value = nil
+      if bound_state != nil
+        state_value = bound_state.get()
+      end
+      draw_fn(_canvas_ctx(cairo_ctx, w, h), {width: w, height: h}, state_value)
+    end, 0, nil)
+    if bound_state != nil
+      bound_state.on(fn(v)
+        area.queue_draw()
+      end)
+    end
+  end
+
+  area
+end
+
+def frame(width, height, bg = nil)
+  {width: width, height: height, bg: bg, ops: []}
+end
+
+def fill(frame, color)
+  frame["ops"] = append(frame["ops"], {op: "fill", color: color})
+end
+
+def line(frame, x1, y1, x2, y2, color = nil)
+  frame["ops"] = append(frame["ops"], {
+    op: "line",
+    x1: x1,
+    y1: y1,
+    x2: x2,
+    y2: y2,
+    color: color
+  })
+end
+
+def text(frame, x, y, value, color = nil)
+  frame["ops"] = append(frame["ops"], {
+    op: "text",
+    x: x,
+    y: y,
+    value: value,
+    color: color
+  })
+end
+
+def commit(widget, frame)
+  w = _ctx.raw_widget(widget)
+  if w != nil
+    w.queue_draw()
+  end
+end

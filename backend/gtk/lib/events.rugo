@@ -1,0 +1,173 @@
+# Event helpers for Cute GTK backend
+#
+# Keyboard shortcuts, timers, and interaction detection.
+
+require "ctx" as "_ctx"
+use "conv"
+use "str"
+
+def _has_mask(state, mask)
+  s = try conv.to_i(_ctx.to_text(state)) or 0
+  m = try conv.to_i(_ctx.to_text(mask)) or 0
+  if m == 0
+    return false
+  end
+  ((s / m) % 2) == 1
+end
+
+def _shortcut_spec(key)
+  spec = {ctrl: false, alt: false, shift: false, key: ""}
+  k = _ctx.to_text(key)
+
+  if str.starts_with(k, "Ctrl+")
+    spec["ctrl"] = true
+    k = _ctx.to_text(str.replace(k, "Ctrl+", ""))
+  end
+  if str.starts_with(k, "Alt+")
+    spec["alt"] = true
+    k = _ctx.to_text(str.replace(k, "Alt+", ""))
+  end
+  if str.starts_with(k, "Shift+")
+    spec["shift"] = true
+    k = _ctx.to_text(str.replace(k, "Shift+", ""))
+  end
+
+  if k == "+"
+    k = _ctx.to_text(str.replace(k, "+", "plus"))
+  end
+  if k == "-"
+    k = _ctx.to_text(str.replace(k, "-", "minus"))
+  end
+
+  spec["key"] = k
+  spec
+end
+
+def _timer_handle(id)
+  h = {}
+  h["__id__"] = id
+  h["stop"] = fn()
+    _glib.source_remove(id)
+  end
+  h
+end
+
+# Keyboard shortcut from a key string (e.g. "Ctrl+Q", "Ctrl+S").
+def shortcut(key, callback)
+  if _ctx.window() == nil || callback == nil
+    return nil
+  end
+
+  spec = _shortcut_spec(key)
+  key_name = spec["key"]
+  keyval = gdk.keyval_from_name(key_name)
+  if keyval == 0
+    keyval = gdk.keyval_from_name(str.lower(key_name))
+  end
+  if keyval == 0
+    return nil
+  end
+
+  handler = {
+    keyval: keyval,
+    ctrl: spec["ctrl"],
+    alt: spec["alt"],
+    shift: spec["shift"],
+    callback: callback
+  }
+  _ctx.set_shortcut_handlers(append(_ctx.shortcut_handlers(), handler))
+
+  key_controller = _ctx.shortcut_key_controller()
+  if key_controller == nil
+    key_controller = gtk.new_event_controller_key()
+    key_controller.connect_key_pressed(fn(controller_evt, pressed_keyval, keycode, state)
+      handled = false
+      ctrl_on = _has_mask(state, gdk.control_mask_value)
+      alt_on = _has_mask(state, gdk.alt_mask_value)
+      shift_on = _has_mask(state, gdk.shift_mask_value)
+      for h in _ctx.shortcut_handlers()
+        if pressed_keyval == h["keyval"]
+          exact = true
+          if h["ctrl"] != ctrl_on
+            exact = false
+          end
+          if h["alt"] != alt_on
+            exact = false
+          end
+          if h["shift"] != shift_on
+            exact = false
+          end
+          if exact
+            h["callback"]()
+            handled = true
+            break
+          end
+        end
+      end
+      handled
+    end)
+    _ctx.window().add_controller(_ctx.to_event_controller(key_controller))
+    _ctx.set_shortcut_key_controller(key_controller)
+  end
+
+  obj = {key: key_name, keyval: keyval}
+  obj["activate"] = fn()
+    callback()
+  end
+  obj
+end
+
+# Single-shot timer. Fires callback once after ms milliseconds.
+def after(ms, callback)
+  source = fn(data_ptr)
+    callback()
+    false
+  end
+  id = _glib.timeout_add(ms, source, 0)
+  _timer_handle(id)
+end
+
+# Repeating timer. Fires callback every ms milliseconds.
+def timer(ms, callback)
+  source = fn(data_ptr)
+    callback()
+    true
+  end
+  id = _glib.timeout_add(ms, source, 0)
+  _timer_handle(id)
+end
+
+# Watch a widget for size changes.
+def on_resize(widget, callback, interval_ms = 200)
+  w = _ctx.raw_widget(widget)
+  if w == nil
+    return nil
+  end
+  last_w = w.get_width()
+  last_h = w.get_height()
+  timer(interval_ms, fn()
+    cw = w.get_width()
+    ch = w.get_height()
+    if cw != last_w || ch != last_h
+      last_w = cw
+      last_h = ch
+      callback(cw, ch)
+    end
+  end)
+end
+
+# Detect double-click on any widget.
+def on_double_click(widget, callback)
+  w = _ctx.raw_widget(widget)
+  if w == nil
+    return nil
+  end
+  gesture = gtk.new_gesture_click()
+  gesture.connect_pressed(fn(gesture_evt, n_press, x, y)
+    if n_press == 2
+      callback()
+    end
+  end)
+  w.add_controller(_ctx.to_event_controller(gesture))
+  gesture
+end

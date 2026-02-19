@@ -8,8 +8,20 @@ block API.
 ## Project Structure
 
 ```
-main.rugo              # The entire library (single file, ~810 lines)
-lib/                   # Reserved for future library code
+main.rugo              # Thin facade (defaults to Qt backend, re-exports)
+lib/
+  state.rugo           # Shared reactive state (backend-agnostic)
+  style.rugo           # Shared CSS builder (backend-agnostic)
+backend/
+  qt/
+    main.rugo          # Qt6 backend entry point
+    lib/               # Qt-specific: ctx, events, layouts, props, threading
+      widgets/         # Qt widget implementations (13 files)
+  gtk/
+    main.rugo          # GTK4 backend entry point
+    cairoops/          # GTK Cairo drawing Go module
+    lib/               # GTK-specific: ctx, events, layouts, props, threading
+      widgets/         # GTK widget implementations (13 files)
 examples/
   counter/main.rugo    # Minimal counter demo
   hackernews/          # Full HN reader (main.rugo + theme.rugo)

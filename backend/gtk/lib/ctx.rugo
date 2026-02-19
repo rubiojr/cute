@@ -1,0 +1,160 @@
+# Context management for Cute GTK backend
+#
+# Manages the implicit layout stack that powers the do...end block
+# nesting pattern.
+
+_CTX = {
+  app: nil,
+  win: nil,
+  stack: [],
+  shortcut_controller: nil,
+  shortcut_key_controller: nil,
+  shortcut_handlers: [],
+  css_provider: nil,
+  next_id: 0
+}
+
+def _to_text(v)
+  if v == nil
+    return ""
+  end
+  "#{v}"
+end
+
+def _raw_widget(v)
+  if type_of(v) == "Hash" && v["__widget__"] != nil
+    return v["__widget__"]
+  end
+  v
+end
+
+def _to_widget(v)
+  w = _raw_widget(v)
+  if w == nil
+    return nil
+  end
+  gtk.widget_new_from_internal_ptr(w.go_pointer())
+end
+
+def _to_event_controller(v)
+  if v == nil
+    return nil
+  end
+  gtk.event_controller_new_from_internal_ptr(v.go_pointer())
+end
+
+# Returns the current (topmost) layout on the stack, or nil.
+def current()
+  s = _CTX["stack"]
+  if len(s) == 0
+    return nil
+  end
+  s[-1]
+end
+
+# Pushes a layout onto the context stack.
+def push(layout)
+  _CTX["stack"] = append(_CTX["stack"], _raw_widget(layout))
+end
+
+# Pops the topmost layout from the stack.
+def pop()
+  s = _CTX["stack"]
+  if len(s) == 0
+    return nil
+  end
+  _CTX["stack"] = s[0, len(s) - 1]
+end
+
+# Returns the layout stack array.
+def stack()
+  return _CTX["stack"]
+end
+
+# Adds a widget to the current layout.
+def add(widget)
+  top = current()
+  w = _to_widget(widget)
+  if top != nil && w != nil
+    top.append(w)
+  end
+end
+
+# Returns the main window handle.
+def window()
+  return _CTX["win"]
+end
+
+# Sets the main window handle.
+def set_window(w)
+  _CTX["win"] = w
+end
+
+# Returns the GTK application handle.
+def app()
+  return _CTX["app"]
+end
+
+# Sets the GTK application handle.
+def set_app(a)
+  _CTX["app"] = a
+end
+
+# Returns the shortcut handlers list.
+def shortcut_handlers()
+  return _CTX["shortcut_handlers"]
+end
+
+# Sets the shortcut handlers list.
+def set_shortcut_handlers(h)
+  _CTX["shortcut_handlers"] = h
+end
+
+# Returns the shortcut key controller.
+def shortcut_key_controller()
+  return _CTX["shortcut_key_controller"]
+end
+
+# Sets the shortcut key controller.
+def set_shortcut_key_controller(c)
+  _CTX["shortcut_key_controller"] = c
+end
+
+# Generates a unique widget name.
+def next_name(prefix)
+  n = _CTX["next_id"]
+  _CTX["next_id"] = n + 1
+  "#{prefix}_#{n}"
+end
+
+# Resets the context for a new window activation.
+def reset_for_activate()
+  _CTX["shortcut_controller"] = nil
+  _CTX["shortcut_key_controller"] = nil
+  _CTX["shortcut_handlers"] = []
+end
+
+# Sets the root stack for the window.
+def set_stack(s)
+  _CTX["stack"] = s
+end
+
+# Helper: convert value to GTK-compatible text.
+def to_text(v)
+  _to_text(v)
+end
+
+# Helper: unwrap a cute widget object to raw GTK widget.
+def raw_widget(v)
+  _raw_widget(v)
+end
+
+# Helper: convert to GTK Widget type.
+def to_widget(v)
+  _to_widget(v)
+end
+
+# Helper: convert to GTK EventController type.
+def to_event_controller(v)
+  _to_event_controller(v)
+end

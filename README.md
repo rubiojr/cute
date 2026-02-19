@@ -38,22 +38,19 @@ end
 
 ## Backend selection (compile-time)
 
-Cute keeps the Qt backend as the default module entry point:
+Cute defaults to the Qt6 backend:
 
 ```ruby
 require "github.com/rubiojr/cute@v0.3.1" as "cute"
 ```
 
-An experimental pure-Rugo GTK backend spike is available as a separate module path:
+To use the GTK4 backend instead, change the require to:
 
 ```ruby
-require "github.com/rubiojr/cute/gtk@v0.3.1" as "cute"
+require "github.com/rubiojr/cute/backend/gtk@v0.3.1" as "cute"
 ```
 
-Current status: the spike code exists, but building puregotk through the
-current Rugo Go bridge is still failing (pointer/upcast wrapper generation).
-The GTK module is kept as an implementation scaffold while this upstream
-compiler compatibility issue is addressed.
+Both backends expose the same API — the rest of your code stays unchanged.
 
 ## Tutorial
 

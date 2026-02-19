@@ -1,0 +1,28 @@
+# Threading helpers for Cute GTK backend
+#
+# Provides safe UI-thread dispatch and background fetch patterns
+# using GLib idle sources.
+
+# Runs a callback on the GTK main thread.
+def ui(callback)
+  source = fn(data_ptr)
+    callback()
+    false
+  end
+  _glib.idle_add(source, 0)
+end
+
+# Runs work in a background thread and dispatches the result to
+# the UI thread.
+def fetch(work, on_done)
+  spawn
+    result = work()
+    source = fn(data_ptr)
+      if on_done != nil
+        on_done(result)
+      end
+      false
+    end
+    _glib.idle_add(source, 0)
+  end
+end

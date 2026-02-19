@@ -1,0 +1,34 @@
+# Combo widget for Cute GTK backend
+
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+
+def combo(items, arg1 = nil, arg2 = nil)
+  p = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+    if on_change == nil
+      on_change = arg2
+    end
+  end
+
+  cb = gtk.new_combo_box_text()
+  for item in items
+    cb.append_text(_ctx.to_text(item))
+  end
+  if len(items) > 0
+    cb.set_active(0)
+  end
+  if on_change != nil
+    cb.connect_changed(fn(combo_evt)
+      on_change(_ctx.to_text(cb.get_active_text()))
+    end)
+  end
+  _props.apply(cb, p)
+  _ctx.add(cb)
+  cb
+end

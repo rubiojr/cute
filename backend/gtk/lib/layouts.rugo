@@ -1,0 +1,260 @@
+# Layout containers for Cute GTK backend
+#
+# Provides vbox, hbox, scroll, container, detached, flow
+# layout constructors.
+
+require "ctx" as "_ctx"
+require "props" as "_props"
+
+def _box(orientation, arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+
+  spacing = 0
+  if p != nil && p["spacing"] != nil
+    spacing = p["spacing"]
+  end
+
+  box = gtk.new_box(orientation, spacing)
+  _props.apply(box, p)
+  _ctx.add(box)
+  _ctx.push(box)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+  box
+end
+
+def _clear_box(layout)
+  lay = _ctx.raw_widget(layout)
+  if lay == nil
+    return nil
+  end
+  child = lay.get_first_child()
+  while child != nil
+    nxt = child.get_next_sibling()
+    lay.remove(child)
+    child = nxt
+  end
+end
+
+# Vertical box layout.
+def vbox(arg1 = nil, arg2 = nil)
+  _box(gtk.orientation_vertical_value, arg1, arg2)
+end
+
+# Horizontal box layout.
+def hbox(arg1 = nil, arg2 = nil)
+  _box(gtk.orientation_horizontal_value, arg1, arg2)
+end
+
+# Scrollable area.
+def scroll(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+
+  area = gtk.new_scrolled_window()
+  area.set_policy(gtk.policy_automatic_value, gtk.policy_automatic_value)
+  content = gtk.new_box(gtk.orientation_vertical_value, 0)
+  area.set_child(_ctx.to_widget(content))
+  _props.apply(area, p)
+  _ctx.add(area)
+
+  _ctx.push(content)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+
+  obj = {__widget__: area}
+  obj["vertical_scroll_bar"] = fn()
+    bar = {}
+    bar["maximum"] = fn()
+      adj = area.get_vadjustment()
+      if adj == nil
+        return 0
+      end
+      max_val = adj.get_upper() - adj.get_page_size()
+      if max_val < 0
+        max_val = 0
+      end
+      max_val
+    end
+    bar["value"] = fn()
+      adj = area.get_vadjustment()
+      if adj == nil
+        return 0
+      end
+      adj.get_value()
+    end
+    bar
+  end
+  obj["show"] = fn() area.show() end
+  obj["hide"] = fn() area.hide() end
+  obj
+end
+
+# Generic container widget with a vertical layout inside.
+def container(arg1 = nil, arg2 = nil)
+  p = nil
+  block = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    block = arg2
+  else
+    block = arg1
+  end
+  spacing = 0
+  if p != nil && p["spacing"] != nil
+    spacing = p["spacing"]
+  end
+  box = gtk.new_box(gtk.orientation_vertical_value, spacing)
+  _props.apply(box, p)
+  _ctx.add(box)
+  _ctx.push(box)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+  box
+end
+
+# Build a widget tree but detach the result from the given layout.
+def detached(layout, block)
+  lay = _ctx.raw_widget(layout)
+  if lay == nil
+    return nil
+  end
+
+  before = lay.get_last_child()
+  before_ptr = 0
+  if before != nil
+    before_ptr = before.go_pointer()
+  end
+
+  _ctx.push(lay)
+  if block != nil
+    block()
+  end
+  _ctx.pop()
+
+  after = lay.get_last_child()
+  if after == nil
+    return nil
+  end
+  if before_ptr != 0 && after.go_pointer() == before_ptr
+    return nil
+  end
+
+  lay.remove(after)
+  after.hide()
+  after
+end
+
+# Arrange an array of widgets in a grid of rows inside a layout.
+def flow(layout, items, cols, p = nil)
+  lay = _ctx.raw_widget(layout)
+  if lay == nil
+    return nil
+  end
+  _clear_box(lay)
+  if cols < 1
+    cols = 1
+  end
+
+  spacing = 0
+  if p != nil && p["spacing"] != nil
+    spacing = p["spacing"]
+  end
+
+  row = nil
+  col = 0
+  for item in items
+    if col == 0
+      row = gtk.new_box(gtk.orientation_horizontal_value, spacing)
+      lay.append(_ctx.to_widget(row))
+    end
+
+    w = _ctx.raw_widget(item)
+    if w != nil
+      if w.get_parent() != nil
+        w.unparent()
+      end
+      row.append(_ctx.to_widget(w))
+      w.show()
+    end
+
+    col += 1
+    if col >= cols
+      filler = gtk.new_box(gtk.orientation_horizontal_value, 0)
+      filler.set_hexpand(true)
+      row.append(_ctx.to_widget(filler))
+      row = nil
+      col = 0
+    end
+  end
+
+  if row != nil
+    filler = gtk.new_box(gtk.orientation_horizontal_value, 0)
+    filler.set_hexpand(true)
+    row.append(_ctx.to_widget(filler))
+  end
+
+  lay
+end
+
+# Clear all children from a layout.
+def clear_layout(layout)
+  _clear_box(layout)
+end
+
+# Add an existing widget to a layout.
+def add_widget(layout, widget)
+  lay = _ctx.raw_widget(layout)
+  w = _ctx.to_widget(widget)
+  if lay != nil && w != nil
+    lay.append(w)
+    w.show()
+  end
+end
+
+# Add stretch (expanding spacer) to a layout.
+def add_stretch(layout)
+  lay = _ctx.raw_widget(layout)
+  if lay != nil
+    filler = gtk.new_box(gtk.orientation_horizontal_value, 0)
+    filler.set_hexpand(true)
+    lay.append(_ctx.to_widget(filler))
+  end
+end
+
+# Temporarily push a layout onto the context stack.
+def add_to(layout, block)
+  _ctx.push(layout)
+  block()
+  _ctx.pop()
+end
+
+# Create a free-standing horizontal box layout.
+def new_hbox(p = nil)
+  spacing = 0
+  if p != nil && p["spacing"] != nil
+    spacing = p["spacing"]
+  end
+  box = gtk.new_box(gtk.orientation_horizontal_value, spacing)
+  _props.apply(box, p)
+  box
+end
