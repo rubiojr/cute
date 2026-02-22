@@ -1,5 +1,37 @@
-# Slider widget for Cute GTK backend (stub)
+# Slider widget for Cute GTK backend
 
+require "../ctx" as "_ctx"
+require "../props" as "_props"
+use "math"
+
+# Horizontal slider. Returns GtkScale handle.
+#
+#   slider(0, 100, fn(val) puts val end)
+#   slider(0, 100, {width: 200}, fn(val) ... end)
 def slider(min_val, max_val, arg1 = nil, arg2 = nil)
-  nil
+  p = nil
+  on_change = nil
+  if type_of(arg1) == "Hash"
+    p = arg1
+    on_change = arg2
+  else
+    on_change = arg1
+  end
+
+  s = gtk.new_scale_with_range(
+    gtk.orientation_horizontal_value,
+    min_val + 0.0,
+    max_val + 0.0,
+    1.0
+  )
+  s.set_draw_value(false)
+  s.set_round_digits(0)
+  _props.apply(s, p)
+  if on_change != nil
+    s.connect_value_changed(fn(evt)
+      on_change(math.floor(s.get_value()))
+    end)
+  end
+  _ctx.add(s)
+  s
 end

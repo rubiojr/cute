@@ -8,6 +8,7 @@ def _canvas_ctx(cairo_ctx, width, height)
   ctx = {}
   if cairo_ctx == nil
     ctx["fill"] = fn(color) nil end
+    ctx["rect"] = fn(x, y, rw, rh, color) nil end
     ctx["line"] = fn(x1, y1, x2, y2, color = nil) nil end
     ctx["text"] = fn(x, y, value, color = nil) nil end
     return ctx
@@ -15,6 +16,9 @@ def _canvas_ctx(cairo_ctx, width, height)
   ptr = cairo_ctx.go_pointer()
   ctx["fill"] = fn(color)
     _cairoops.fill(ptr, width, height, _ctx.to_text(color))
+  end
+  ctx["rect"] = fn(x, y, rw, rh, color)
+    _cairoops.rect(ptr, x, y, rw, rh, _ctx.to_text(color))
   end
   ctx["line"] = fn(x1, y1, x2, y2, color = nil)
     c = ""
@@ -44,6 +48,7 @@ def canvas(arg1 = nil, arg2 = nil)
   end
 
   area = gtk.new_drawing_area()
+  area.set_hexpand(false)
   if p != nil && p["width"] != nil
     area.set_content_width(p["width"])
   end

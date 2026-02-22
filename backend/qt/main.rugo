@@ -61,6 +61,11 @@ def quit()
   qt6.qcore_application_quit()
 end
 
+# Returns the backend name.
+def backend()
+  "qt"
+end
+
 # Access the raw QWidget window handle.
 def window()
   return _ctx.window()

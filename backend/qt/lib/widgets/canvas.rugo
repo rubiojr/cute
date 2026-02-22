@@ -69,6 +69,9 @@ def _painter_ctx(painter, w, h)
   ctx["fill"] = fn(color)
     painter.fill_rect5(0, 0, w, h, qt6.new_qcolor6(color))
   end
+  ctx["rect"] = fn(x, y, rw, rh, color)
+    painter.fill_rect5(x, y, rw, rh, qt6.new_qcolor6(color))
+  end
   ctx["line"] = fn(x1, y1, x2, y2, color = nil)
     if color != nil
       painter.set_pen(qt6.new_qcolor6(color))

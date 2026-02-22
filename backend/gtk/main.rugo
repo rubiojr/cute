@@ -73,6 +73,11 @@ def quit()
   end
 end
 
+# Returns the backend name.
+def backend()
+  "gtk"
+end
+
 # Access the raw window handle.
 def window()
   _ctx.window()

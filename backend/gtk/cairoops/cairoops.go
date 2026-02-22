@@ -122,3 +122,13 @@ func Text(ctx uintptr, x float64, y float64, value string, color string) {
 	cairoMoveTo(ctx, x, y)
 	cairoShowText(ctx, value)
 }
+
+func Rect(ctx uintptr, x float64, y float64, w float64, h float64, color string) {
+	if ctx == 0 || w <= 0 || h <= 0 {
+		return
+	}
+	r, g, b, a := colorRGBA(color)
+	cairoSetSourceRGBA(ctx, r, g, b, a)
+	cairoRectangle(ctx, x, y, w, h)
+	cairoFill(ctx)
+}

@@ -1,0 +1,120 @@
+# PowerBar Example -- built with Cute
+#
+# A custom power-bar meter driven by a slider. Demonstrates
+# cute.canvas() with paintEvent-based drawing, reactive state,
+# and compound widget composition.
+#
+# Build and run:
+#   cd examples/powerbar
+#   rugo build main.rugo -o powerbar && ./powerbar
+
+require "./../../backend/gtk" as "cute"
+
+# -- Configuration ------------------------------------------------------------
+
+COLORS = [
+  "#49006a", "#7a0177", "#ae017e", "#dd3497",
+  "#f768a1", "#fa9fb5", "#fcc5c0", "#fde0dd", "#fff7f3"
+]
+PADDING = 4
+BAR_SOLID = 0.8
+BG_COLOR = "#1e1e2e"
+
+# -- Bar drawing --------------------------------------------------------------
+
+# Draw the power bar segments inside the canvas callback.
+#
+#   value  -- current slider value (0..100)
+#   steps  -- array of color strings, one per segment
+#   solid  -- fraction of each step that is solid bar (0..1)
+#   pad    -- pixel padding around the edges
+def draw_bar(ctx, size, value, steps, solid, pad)
+  w = size["width"]
+  h = size["height"]
+  ctx.fill(BG_COLOR)
+
+  n_steps = len(steps)
+  d_height = h - (pad * 2)
+  d_width = w - (pad * 2)
+  step_size = d_height / n_steps
+  bar_h = step_size * solid
+  spacer = step_size * (1 - solid) / 2
+
+  # How many segments to light up.
+  pc = value / 100.0
+  n_draw = pc * n_steps
+
+  i = 0
+  while i < n_draw
+    y = pad + d_height - ((i + 1) * step_size) + spacer
+    ctx.rect(pad, y, d_width, bar_h, steps[i])
+    i += 1
+  end
+end
+
+# -- App ----------------------------------------------------------------------
+
+cute.app("PowerBar", 160, 420) do
+  qt_css = <<~'CSS'
+    QWidget {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: sans-serif;
+    }
+    QSlider::groove:horizontal {
+      background: #313244;
+      height: 6px;
+      border-radius: 3px;
+    }
+    QSlider::handle:horizontal {
+      background: #cba6f7;
+      width: 16px;
+      margin: -5px 0;
+      border-radius: 8px;
+    }
+  CSS
+
+  gtk_css = <<~'CSS'
+    window {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: sans-serif;
+    }
+    scale trough {
+      background: #313244;
+      min-height: 6px;
+      border-radius: 3px;
+    }
+    scale slider {
+      background: #cba6f7;
+      min-width: 16px;
+      min-height: 16px;
+      border-radius: 8px;
+    }
+  CSS
+
+  css = qt_css
+  if cute.backend() == "gtk"
+    css = gtk_css
+  end
+  cute.stylesheet(css)
+
+  level = cute.state(0)
+
+  cute.vbox({spacing: 10, margins: [10, 10, 10, 10]}) do
+    cute.label("PowerBar", {css: "font-size: 14px; font-weight: bold;"})
+
+    cute.canvas({min_height: 280, state: level}, fn(ctx, size, v)
+      draw_bar(ctx, size, v, COLORS, BAR_SOLID, PADDING)
+    end)
+
+    cute.slider(0, 100, fn(val)
+      level.set(val)
+    end)
+
+    cute.label(level, fn(v)
+      pct = "%"
+      "Level: #{v}#{pct}"
+    end, {css: "color: #a6adc8;"})
+  end
+end

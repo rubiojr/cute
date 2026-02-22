@@ -13,7 +13,7 @@ The miqt Qt6 bindings are fetched automatically on first build.
 Create `main.rugo`:
 
 ```ruby
-require "github.com/rubiojr/cute@v0.3.1"
+require "github.com/rubiojr/cute@latest"
 
 cute.app("Hello", 400, 200) do
   cute.vbox do
@@ -33,7 +33,7 @@ rugo build main.rugo -o hello && ./hello
 
 ## How It Works
 
-Cute is a Rugo module — you load it with `require "github.com/rubiojr/cute@v0.3.1"` and call its functions through the `cute` namespace.
+Cute is a Rugo module — you load it with `require "github.com/rubiojr/cute@latest"` and call its functions through the `cute` namespace.
 
 The `cute.app()` function creates a window and runs the Qt event loop. Everything inside the `do...end` block builds the UI tree. Widgets are automatically added to the current layout — no manual parenting needed.
 

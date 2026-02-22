@@ -9,7 +9,7 @@ A declarative UI toolkit for [Rugo](https://github.com/rubiojr/rugo).
 Build native desktop apps with `do...end` blocks, reactive state, and zero ceremony.
 
 ```ruby
-require "github.com/rubiojr/cute@v0.5.0"
+require "github.com/rubiojr/cute@latest"
 
 cute.app("Counter", 400, 300) do
   count = cute.state(0)
@@ -41,13 +41,13 @@ end
 Cute defaults to the Qt6 backend:
 
 ```ruby
-require "github.com/rubiojr/cute@v0.5.0" as "cute"
+require "github.com/rubiojr/cute@latest" as "cute"
 ```
 
 To use the GTK4 backend instead, change the require to:
 
 ```ruby
-require "github.com/rubiojr/cute/backend/gtk@v0.5.0" as "cute"
+require "github.com/rubiojr/cute/backend/gtk@latest" as "cute"
 ```
 
 Both backends expose the same API — the rest of your code stays unchanged.

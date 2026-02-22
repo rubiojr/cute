@@ -4,7 +4,7 @@
 # reactive state bindings, and zero ceremony.
 #
 # Usage:
-#   require "github.com/rubiojr/cute@v0.1.0"
+#   require "github.com/rubiojr/cute@latest"
 #
 #   cute.app("My App", 400, 300) do
 #     count = cute.state(0)
@@ -39,6 +39,7 @@ require "backend/qt" as "_qt"
 def app(title, width, height, block)        _qt.app(title, width, height, block) end
 def quit()                                  _qt.quit() end
 def window()                                _qt.window() end
+def backend()                               _qt.backend() end
 def stylesheet(css_or_state)                _qt.stylesheet(css_or_state) end
 def alert(title, message)                   _qt.alert(title, message) end
 def confirm(title, message)                 _qt.confirm(title, message) end
