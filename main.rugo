@@ -84,15 +84,6 @@ end
 
 def image(p = nil)                          _qt.image(p) end
 def canvas(arg1 = nil, arg2 = nil)          _qt.canvas(arg1, arg2) end
-def canvas_frame(width, height, bg = nil)   _qt.canvas_frame(width, height, bg) end
-def canvas_fill(frame, color)               _qt.canvas_fill(frame, color) end
-def canvas_line(frame, x1, y1, x2, y2, color = nil)
-  _qt.canvas_line(frame, x1, y1, x2, y2, color)
-end
-def canvas_text(frame, x, y, value, color = nil)
-  _qt.canvas_text(frame, x, y, value, color)
-end
-def canvas_commit(widget, frame)            _qt.canvas_commit(widget, frame) end
 def load_pixmap(data)                       _qt.load_pixmap(data) end
 def text_area(text = "", p = nil)           _qt.text_area(text, p) end
 def progress(p = nil)                       _qt.progress(p) end

@@ -135,15 +135,6 @@ end
 
 def image(p = nil)                          _image.image(p) end
 def canvas(arg1 = nil, arg2 = nil)          _canvas.canvas(arg1, arg2) end
-def canvas_frame(width, height, bg = nil)   _canvas.frame(width, height, bg) end
-def canvas_fill(frame, color)               _canvas.fill(frame, color) end
-def canvas_line(frame, x1, y1, x2, y2, color = nil)
-  _canvas.line(frame, x1, y1, x2, y2, color)
-end
-def canvas_text(frame, x, y, value, color = nil)
-  _canvas.text(frame, x, y, value, color)
-end
-def canvas_commit(widget, frame)            _canvas.commit(widget, frame) end
 def load_pixmap(data)                       _image.load_pixmap(data) end
 def text_area(text = "", p = nil)           _text_area.text_area(text, p) end
 def progress(p = nil)                       _progress.progress(p) end
