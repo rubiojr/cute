@@ -1,0 +1,45 @@
+# Qt testing primitives for Cute
+#
+# Provides screenshot capture and widget interaction for the Qt backend.
+# Used by the backend-agnostic test module (lib/test.rugo).
+#
+# Screenshots use QWidget::grab() which works with
+# QT_QPA_PLATFORM=offscreen -- no display server needed.
+
+require "ctx" as "_ctx"
+require "registry" as "_registry"
+
+use "os"
+
+# -- Screenshot ---------------------------------------------------------------
+
+# Grab the main window and save as PNG.
+def screenshot(path)
+  pixmap = _ctx.window().grab()
+  pixmap.save(path)
+end
+
+# -- Widget interaction -------------------------------------------------------
+
+# Find a widget by ID and simulate a click.
+def click(id)
+  widget = _registry.find(id)
+  if widget == nil
+    raise("test.click: widget not found: #{id}")
+  end
+  widget.click()
+end
+
+# Find a widget by ID and set its text (for input widgets).
+def set_text(id, text)
+  widget = _registry.find(id)
+  if widget == nil
+    raise("test.set_text: widget not found: #{id}")
+  end
+  widget.set_text(text)
+end
+
+# Find a widget by ID and return it.
+def find(id)
+  _registry.find(id)
+end

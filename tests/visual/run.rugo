@@ -1,0 +1,102 @@
+#!/usr/bin/env rugo
+# Cute visual test runner
+#
+# Builds and runs all visual tests under tests/visual/.
+# Each test directory must contain a main.rugo that uses the
+# cute test module.
+#
+# Usage:
+#   rugo run tests/visual/run.rugo              # verify against references
+#   rugo run tests/visual/run.rugo --update     # regenerate reference images
+#   rugo run tests/visual/run.rugo counter      # run a single test
+
+use "os"
+use "str"
+
+# -- Parse arguments ----------------------------------------------------------
+
+args = os.args()
+update = false
+test_filter = ""
+
+for arg in args
+  if arg == "--update"
+    update = true
+  end
+  if !str.starts_with(arg, "-")
+    test_filter = arg
+  end
+end
+
+# -- Set environment ----------------------------------------------------------
+
+os.setenv("LC_ALL", "C.UTF-8")
+os.setenv("QT_QPA_PLATFORM", "offscreen")
+if update
+  os.setenv("CUTE_TEST_UPDATE", "1")
+else
+  os.setenv("CUTE_TEST_UPDATE", "")
+end
+
+# -- Find and run tests -------------------------------------------------------
+
+test_dirs = os.glob("tests/visual/*/main.rugo")
+orig_dir = os.cwd()
+
+passed = 0
+failed = 0
+errors = []
+
+for test_main in test_dirs
+  dir = `dirname #{test_main}`
+  name = `basename #{dir}`
+
+  if test_filter != "" && name != test_filter
+    next
+  end
+
+  puts "=== #{name} ==="
+
+  os.chdir(dir)
+  bin = "#{name}_test"
+
+  # Build
+  build_out = try `rugo build main.rugo -o #{bin} 2>&1` or nil
+  if build_out == nil
+    puts "  BUILD FAILED"
+    failed += 1
+    append(errors, "#{name}: build failed")
+    os.chdir(orig_dir)
+    next
+  end
+
+  # Run and print output
+  run_out = try `./#{bin} 2>/dev/null` or nil
+  if run_out != nil
+    puts run_out
+    passed += 1
+  else
+    failed += 1
+    append(errors, "#{name}: test failed")
+  end
+
+  # Clean up binary
+  try os.remove(bin) or nil
+  os.chdir(orig_dir)
+end
+
+# -- Summary ------------------------------------------------------------------
+
+puts ""
+puts "=== Summary ==="
+total = passed + failed
+puts "#{passed}/#{total} test suites passed"
+
+if failed > 0
+  puts ""
+  puts "Failures:"
+  for err in errors
+    puts "  #{err}"
+  end
+  os.exit(1)
+end

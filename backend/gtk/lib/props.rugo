@@ -4,6 +4,7 @@
 # Cute property names to GTK setter calls.
 
 require "ctx" as "_ctx"
+require "registry" as "_registry"
 
 # Applies a stylesheet to a specific widget by CSS name.
 def _apply_css(widget, css_body)
@@ -52,6 +53,7 @@ def apply(widget, props)
 
   if props["id"] != nil
     w.set_name(_ctx.to_text(props["id"]))
+    _registry.register(_ctx.to_text(props["id"]), widget)
   end
 
   req_w = nil

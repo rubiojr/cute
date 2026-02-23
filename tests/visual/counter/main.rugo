@@ -1,0 +1,66 @@
+# Counter visual test
+#
+# Tests the counter example: renders the UI, takes an initial screenshot,
+# clicks the button, and verifies the UI updated.
+#
+# Run:
+#   cd tests/visual/counter
+#   rugo build main.rugo -o counter_test
+#   QT_QPA_PLATFORM=offscreen ./counter_test
+#
+# Update reference images:
+#   QT_QPA_PLATFORM=offscreen CUTE_TEST_UPDATE=1 ./counter_test
+
+require "./../../../" as "cute"
+require "./../../../lib/test" as "t"
+
+use "os"
+
+t.init({
+  screenshot: fn(path) cute.test_screenshot(path) end,
+  click: fn(id) cute.test_click(id) end,
+  set_text: fn(id, text) cute.test_set_text(id, text) end,
+  find: fn(id) cute.test_find(id) end,
+  quit: fn() cute.quit() end
+})
+
+if os.getenv("CUTE_TEST_DIR") != ""
+  t.set_dir(os.getenv("CUTE_TEST_DIR"))
+end
+if os.getenv("CUTE_TEST_UPDATE") == "1"
+  t.set_update(true)
+end
+
+cute.app("Counter Test", 400, 300) do
+  count = cute.state(0)
+
+  cute.vbox do
+    cute.label(count, fn(v) "Clicked: #{v} times" end, {id: "count-label"})
+
+    cute.button("Click Me", {id: "click-me"}) do
+      count.update(fn(v) v + 1 end)
+    end
+
+    cute.hbox do
+      cute.button("Reset", {id: "reset"}) do
+        count.set(0)
+      end
+    end
+  end
+
+  cute.after(500, fn()
+    t.screenshot("initial")
+
+    t.click("click-me")
+    t.click("click-me")
+    t.click("click-me")
+
+    t.screenshot("after_clicks")
+
+    t.click("reset")
+
+    t.screenshot("after_reset")
+
+    t.done()
+  end)
+end

@@ -40,6 +40,7 @@ def app(title, width, height, block)        _qt.app(title, width, height, block)
 def quit()                                  _qt.quit() end
 def window()                                _qt.window() end
 def backend()                               _qt.backend() end
+def screenshot(path)                        _qt.screenshot(path) end
 def stylesheet(css_or_state)                _qt.stylesheet(css_or_state) end
 def alert(title, message)                   _qt.alert(title, message) end
 def confirm(title, message)                 _qt.confirm(title, message) end
@@ -145,3 +146,10 @@ end
 
 def ui(callback)                            _qt.ui(callback) end
 def fetch(work, on_done)                    _qt.fetch(work, on_done) end
+
+# -- Testing ------------------------------------------------------------------
+
+def test_screenshot(path)                   _qt.test_screenshot(path) end
+def test_click(id)                          _qt.test_click(id) end
+def test_set_text(id, text)                 _qt.test_set_text(id, text) end
+def test_find(id)                           _qt.test_find(id) end

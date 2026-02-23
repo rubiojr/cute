@@ -1,0 +1,167 @@
+# Cute visual test module
+#
+# Provides a backend-agnostic API for visual testing of Cute apps.
+# Tests are Rugo scripts that use this module to take screenshots,
+# interact with widgets, and verify behavior.
+#
+# Usage:
+#   require "github.com/rubiojr/cute@v0.1.0" as "cute"
+#   require "github.com/rubiojr/cute/lib/test@v0.1.0" as "t"
+#
+#   t.init(cute)
+#   cute.app("Test", 400, 300) do
+#     cute.button("Click Me", id: "btn") do ... end
+#     t.screenshot("initial")
+#     t.click("btn")
+#     t.screenshot("after_click")
+#     t.done()
+#   end
+#
+# Run headlessly with:
+#   QT_QPA_PLATFORM=offscreen ./test_binary
+
+use "os"
+use "conv"
+use "str"
+
+# -- Internal state -----------------------------------------------------------
+
+_STATE = {
+  test_dir: ".",
+  update: false,
+  passed: 0,
+  failed: 0,
+  errors: [],
+  cute: nil
+}
+
+# -- Configuration ------------------------------------------------------------
+
+# Initialize the test module with cute testing function references.
+#
+# Pass a hash with the testing functions:
+#   t.init({
+#     screenshot: fn(path) cute.test_screenshot(path) end,
+#     click: fn(id) cute.test_click(id) end,
+#     set_text: fn(id, text) cute.test_set_text(id, text) end,
+#     find: fn(id) cute.test_find(id) end,
+#     quit: fn() cute.quit() end
+#   })
+def init(fns)
+  _STATE["fns"] = fns
+end
+
+# Set the test directory (where expected/ and actual/ live).
+def set_dir(dir)
+  _STATE["test_dir"] = dir
+end
+
+# Enable update mode -- screenshots are saved as new references.
+def set_update(val)
+  _STATE["update"] = val
+end
+
+# -- Actions ------------------------------------------------------------------
+
+# Capture a screenshot of the main window.
+#
+# In normal mode, compares against expected/<name>.png.
+# In update mode, saves as expected/<name>.png.
+def screenshot(name)
+  dir = _STATE["test_dir"]
+  actual_dir = "#{dir}/actual"
+  expected_dir = "#{dir}/expected"
+  os.mkdir(actual_dir)
+  os.mkdir(expected_dir)
+
+  actual_path = "#{actual_dir}/#{name}.png"
+  expected_path = "#{expected_dir}/#{name}.png"
+
+  _STATE["fns"]["screenshot"](actual_path)
+
+  if _STATE["update"]
+    os.exec("cp #{actual_path} #{expected_path}")
+    puts "  UPDATE: #{name}.png"
+    _STATE["passed"] += 1
+    return nil
+  end
+
+  if !os.file_exists(expected_path)
+    _STATE["failed"] += 1
+    msg = "FAIL: #{name}.png -- no reference image (run with --update)"
+    append(_STATE["errors"], msg)
+    puts "  #{msg}"
+    return nil
+  end
+
+  # magick compare exits 1 when images differ and writes metric to stderr.
+  # Use SSIM (structural similarity) for environment-tolerant comparison.
+  # SSIM returns dissimilarity: 0 = identical, higher = more different.
+  cmd = "magick compare -metric SSIM #{actual_path} #{expected_path} null: 2>&1 || true"
+  result = try os.exec(cmd) or ""
+  # Output format: "N (normalized)" -- extract the first number
+  parts = str.split(result, " ")
+  raw_num = parts[0]
+  diff = try conv.to_f(raw_num) or -1.0
+
+  if diff < 0
+    _STATE["failed"] += 1
+    msg = "FAIL: #{name}.png -- comparison error"
+    append(_STATE["errors"], msg)
+    puts "  #{msg}"
+    return nil
+  end
+
+  # SSIM dissimilarity threshold: 0 = identical, < 1.0 = visually similar
+  threshold = 1.0
+  if diff <= threshold
+    _STATE["passed"] += 1
+    puts "  PASS: #{name}.png (ssim diff: #{diff})"
+  else
+    _STATE["failed"] += 1
+    msg = "FAIL: #{name}.png (ssim diff: #{diff}, threshold: #{threshold})"
+    append(_STATE["errors"], msg)
+    puts "  #{msg}"
+  end
+end
+
+# Simulate a click on the widget with the given ID.
+def click(id)
+  _STATE["fns"]["click"](id)
+end
+
+# Set text on the widget with the given ID.
+def set_text(id, text)
+  _STATE["fns"]["set_text"](id, text)
+end
+
+# Find a widget by ID.
+def find(id)
+  _STATE["fns"]["find"](id)
+end
+
+# Pause for the given number of milliseconds.
+def wait(ms)
+  os.exec("sleep #{ms / 1000.0}")
+end
+
+# -- Reporting ----------------------------------------------------------------
+
+# Print summary and exit. Call at the end of every test.
+def done()
+  passed = _STATE["passed"]
+  failed = _STATE["failed"]
+  total = passed + failed
+  puts ""
+  puts "Results: #{passed}/#{total} passed"
+
+  if failed > 0
+    for err in _STATE["errors"]
+      puts("  #{err}")
+    end
+    _STATE["fns"]["quit"]()
+    os.exit(1)
+  end
+
+  _STATE["fns"]["quit"]()
+end

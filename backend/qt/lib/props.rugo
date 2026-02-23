@@ -3,6 +3,8 @@
 # Applies a props hash to any Qt widget or layout, mapping
 # Cute property names to Qt setter calls.
 
+require "registry" as "_registry"
+
 # Applies a props hash to a Qt widget or layout.
 #
 # Supported keys:
@@ -29,6 +31,7 @@ def apply(widget, props)
     val = props[key]
     if key == "id"
       widget.set_object_name(val)
+      _registry.register(val, widget)
     end
     if key == "width"
       widget.set_fixed_width(val)

@@ -1,0 +1,24 @@
+# Widget registry for Cute GTK backend
+#
+# Maps widget IDs to widget references, enabling programmatic
+# lookup for testing and interaction.
+#
+# Populated automatically by props.apply() when an id: prop is set.
+# Used by the test module to find widgets by ID.
+
+_REGISTRY = {}
+
+# Register a widget with the given ID.
+def register(id, widget)
+  _REGISTRY[id] = widget
+end
+
+# Look up a widget by its ID. Returns nil if not found.
+def find(id)
+  _REGISTRY[id]
+end
+
+# Clear all registered widgets.
+def clear()
+  _REGISTRY = {}
+end

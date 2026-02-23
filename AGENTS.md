@@ -2,8 +2,9 @@
 
 Cute is a declarative UI toolkit for **Rugo** (a Ruby-inspired language that
 compiles to native binaries via Go). It wraps Qt6 widgets through the
-[miqt](https://github.com/mappu/miqt) Go bindings into a clean `do...end`
-block API.
+[miqt](https://github.com/mappu/miqt) Go bindings and GTK4 widgets through
+[puregotk](https://github.com/jwijenbergh/puregotk) into a clean `do...end`
+block API. `cute.backend()` returns `"qt"` or `"gtk"` at runtime.
 
 ## Project Structure
 
@@ -24,8 +25,12 @@ backend/
       widgets/         # GTK widget implementations (13 files)
 examples/
   counter/main.rugo    # Minimal counter demo
+  canvas/main.rugo     # Canvas drawing with state-driven animation
+  powerbar/main.rugo   # Custom power-bar widget (tutorial companion)
   hackernews/          # Full HN reader (main.rugo + theme.rugo)
-docs/                  # Numbered tutorial series (01- through 07-)
+  gallery/             # Image gallery
+  composite_widget/    # Composite widget demo
+docs/                  # Numbered tutorial series (01- through 09-)
 ```
 
 ## Build / Run / Test
@@ -226,6 +231,18 @@ end
   default `a`.  Use arg-overloading when the trailing argument is a block:
   `def vbox(arg1 = nil, arg2 = nil)`.
 
+- **`use` must be at file scope.** Placing a `use` statement inside a
+  function body causes a parse error. Always put `use "math"` etc. at the
+  top of the file alongside `require`.
+
+- **`%` in string interpolation** is interpreted as a Go `fmt` verb.
+  `"#{v}%"` produces `42%!(NOVERB)`. Use an intermediate variable:
+
+```ruby
+pct = "%"
+"#{v}#{pct}"
+```
+
 ### Threading
 
 - Long-running operations (network, I/O) go in `spawn` blocks.
@@ -256,3 +273,12 @@ end
   for encapsulation (e.g., `theme.css()` rather than exposing `THEME` directly).
 - The implicit layout stack pattern (`_CTX`) means child widgets created inside
   `do...end` blocks are auto-parented; avoid passing explicit parent arguments.
+
+### Canvas Drawing
+
+The `canvas(props, draw_fn)` widget uses native paint events -- Qt's
+`on_paint_event` with a QPainter created inside the event, and GTK's
+`set_draw_func` with a Cairo context. Both backends expose the same drawing
+primitives: `ctx.fill(color)`, `ctx.rect(x, y, w, h, color)`,
+`ctx.line(x1, y1, x2, y2, color)`, and `ctx.text(x, y, value, color)`.
+Bind a `state` prop to trigger automatic repaints on value changes.
