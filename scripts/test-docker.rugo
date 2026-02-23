@@ -2,12 +2,16 @@
 # Run visual tests in Docker for consistent, reproducible results.
 #
 # Usage:
-#   rugo run scripts/test-docker.rugo                  # run all visual tests
-#   rugo run scripts/test-docker.rugo counter           # run a specific test
-#   rugo run scripts/test-docker.rugo update            # regenerate reference images
-#   rugo run scripts/test-docker.rugo counter update    # update a single test
+#   rugo run scripts/test-docker.rugo                       # run all visual tests
+#   rugo run scripts/test-docker.rugo counter                # run a specific test (both backends)
+#   rugo run scripts/test-docker.rugo update                 # regenerate reference images
+#   rugo run scripts/test-docker.rugo counter update         # update a single test
+#   rugo run scripts/test-docker.rugo qt                     # run only Qt tests
+#   rugo run scripts/test-docker.rugo gtk                    # run only GTK tests
+#   rugo run scripts/test-docker.rugo qt counter             # run a single Qt test
+#   rugo run scripts/test-docker.rugo gtk counter update     # update a single GTK test
 #
-# The Docker image pins Fedora 43, Qt6, Go 1.26.0, and font versions
+# The Docker image pins Fedora 43, Qt6, GTK4, Go 1.26.0, and font versions
 # so reference images are portable across developer machines and CI.
 #
 # Named volumes persist Go build and rugo module caches across runs.
@@ -19,10 +23,16 @@ use "str"
 
 update = false
 test_name = ""
+backend = ""
 
 for arg in os.args()
   update = true if arg == "update"
-  test_name = arg if arg != "update"
+  if arg == "qt" || arg == "gtk"
+    backend = arg
+  end
+  if arg != "update" && arg != "qt" && arg != "gtk"
+    test_name = arg
+  end
 end
 
 # -- Configuration ------------------------------------------------------------
@@ -45,15 +55,34 @@ update_flag = update && "1"
 vol = "-v $PWD:/cute -v #{CACHE}:/root/.cache/go-build -v #{CACHE}-mod:/root/go/pkg/mod -v #{CACHE}-rugo:/root/.rugo"
 env = "-e CUTE_TEST_UPDATE=#{update_flag}"
 
-if test_name != ""
-  inner = "cd /cute/tests/visual/#{test_name} && rugo build main.rugo -o #{test_name}_test && ./#{test_name}_test; rm -f #{test_name}_test"
+# Single test mode: build and run directly
+if test_name != "" && backend != ""
+  prefix = ""
+  qt_env = ""
+  if backend == "qt"
+    qt_env = "export QT_QPA_PLATFORM=offscreen && "
+  else
+    prefix = "xvfb-run -a "
+  end
+
+  inner = "cd /cute/tests/visual/#{backend}/#{test_name} && #{qt_env}rugo build main.rugo -o #{test_name}_test && #{prefix}./#{test_name}_test; rm -f #{test_name}_test"
   out = try `docker run --rm #{vol} #{env} #{IMAGE} bash -c '#{inner}'` or err
     os.exit(1)
   end
   puts out
 else
-  update_arg = "update" if update
-  out = try `docker run --rm #{vol} #{env} #{IMAGE} bash -c 'rugo run /cute/tests/visual/run.rugo #{update_arg}'` or err
+  # Use the runner for everything else
+  runner_args = ""
+  if backend != ""
+    runner_args = "#{backend} "
+  end
+  if test_name != ""
+    runner_args = "#{runner_args}#{test_name} "
+  end
+  if update
+    runner_args = "#{runner_args}update"
+  end
+  out = try `docker run --rm #{vol} #{env} #{IMAGE} bash -c 'rugo run /cute/tests/visual/run.rugo #{runner_args}'` or err
     os.exit(1)
   end
   puts out

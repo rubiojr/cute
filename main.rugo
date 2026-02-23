@@ -131,6 +131,7 @@ end
 # -- Events -------------------------------------------------------------------
 
 def shortcut(key, callback)                 _qt.shortcut(key, callback) end
+def ready(callback)                         _qt.ready(callback) end
 def after(ms, callback)                     _qt.after(ms, callback) end
 def timer(ms, callback)                     _qt.timer(ms, callback) end
 

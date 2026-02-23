@@ -12,6 +12,13 @@ def shortcut(key, callback)
   return sc
 end
 
+# Single-shot callback that fires once the window is rendered and ready.
+# In Qt, uses a 0ms single-shot timer that defers to the event loop
+# after the initial paint.
+def ready(callback)
+  after(0, callback)
+end
+
 # Single-shot timer. Fires callback once after ms milliseconds.
 def after(ms, callback)
   t = qt6.new_qtimer()

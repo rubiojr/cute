@@ -193,6 +193,7 @@ end
 # -- Events -------------------------------------------------------------------
 
 def shortcut(key, callback)                 _events.shortcut(key, callback) end
+def ready(callback)                         _events.ready(callback) end
 def after(ms, callback)                     _events.after(ms, callback) end
 def timer(ms, callback)                     _events.timer(ms, callback) end
 

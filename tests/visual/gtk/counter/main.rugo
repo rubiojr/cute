@@ -1,18 +1,18 @@
-# Counter visual test
+# Counter visual test (GTK backend)
 #
 # Tests the counter example: renders the UI, takes an initial screenshot,
 # clicks the button, and verifies the UI updated.
 #
 # Run:
-#   cd tests/visual/counter
+#   cd tests/visual/gtk/counter
 #   rugo build main.rugo -o counter_test
-#   QT_QPA_PLATFORM=offscreen ./counter_test
+#   xvfb-run -a ./counter_test
 #
 # Update reference images:
-#   QT_QPA_PLATFORM=offscreen CUTE_TEST_UPDATE=1 ./counter_test
+#   CUTE_TEST_UPDATE=1 xvfb-run -a ./counter_test
 
-require "./../../../" as "cute"
-require "./../../../lib/test" as "t"
+require "./../../../../backend/gtk" as "cute"
+require "./../../../../lib/test" as "t"
 
 use "os"
 
@@ -48,9 +48,11 @@ cute.app("Counter Test", 400, 300) do
     end
   end
 
-  cute.after(0, fn()
+  cute.ready(fn()
     t.screenshot("initial")
 
+    t.click("click-me")
+    t.click("click-me")
     t.click("click-me")
     t.click("click-me")
     t.click("click-me")

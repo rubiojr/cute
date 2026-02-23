@@ -42,15 +42,24 @@ end
 # Generate reference images (first time)
 rugo run tests/visual/run.rugo update
 
-# Verify against references
+# Verify against references (all backends)
 rugo run tests/visual/run.rugo
 
-# Run a single test
+# Run only Qt tests
+rugo run tests/visual/run.rugo qt
+
+# Run only GTK tests
+rugo run tests/visual/run.rugo gtk
+
+# Run a single test (both backends)
 rugo run tests/visual/run.rugo counter
+
+# Run a single backend-specific test
+rugo run tests/visual/run.rugo qt counter
 ```
 
-Tests run headlessly using `QT_QPA_PLATFORM=offscreen` -- no display
-server needed.
+Qt tests run headlessly using `QT_QPA_PLATFORM=offscreen` -- no display
+server needed. GTK tests use `xvfb-run` for headless execution.
 
 ## Test API
 
@@ -113,6 +122,21 @@ cute.after(500, fn()
 end)
 ```
 
+## Backend-specific Tests
+
+Test scripts are identical except for the `require` line at the top:
+
+```ruby
+# Qt test
+require "./../../../../" as "cute"
+
+# GTK test
+require "./../../../../backend/gtk" as "cute"
+```
+
+GTK tests use a slightly longer `cute.after()` delay (500ms vs 0ms) to
+allow the virtual display to fully render the window before screenshots.
+
 ### Environment Variables
 
 | Variable | Description |
@@ -124,15 +148,17 @@ end)
 
 ```
 tests/visual/
-  run.sh                  # Test runner script
-  counter/
-    main.rugo             # Test script
-    expected/             # Reference screenshots (committed)
-      initial.png
-      after_clicks.png
-    actual/               # Generated during test runs (gitignored)
-      initial.png
-      after_clicks.png
+  run.rugo                  # Test runner (handles both backends)
+  qt/
+    counter/
+      main.rugo             # Qt test script
+      expected/             # Qt reference screenshots (committed)
+      actual/               # Generated during test runs (gitignored)
+  gtk/
+    counter/
+      main.rugo             # GTK test script
+      expected/             # GTK reference screenshots (committed)
+      actual/               # Generated during test runs (gitignored)
 ```
 
 ## How It Works
@@ -140,21 +166,45 @@ tests/visual/
 1. The **widget registry** maps `id:` props to widget references. Both Qt
    and GTK backends populate this registry automatically in `props.apply()`.
 
-2. **`test_screenshot()`** uses `QWidget::grab()` (Qt) to capture the
-   window as a PNG -- works in offscreen mode without a display server.
+2. **`test_screenshot()`** uses `QWidget::grab()` (Qt) or the
+   `GtkWidgetPaintable → GskRenderer → GdkTexture` pipeline (GTK) to
+   capture the window as a PNG.
 
-3. **`test_click()`** calls `QAbstractButton::click()` (Qt) to
-   programmatically trigger the button's click handler.
+3. **`test_click()`** calls `QAbstractButton::click()` (Qt) or
+   `gtk_widget_activate()` (GTK) to programmatically trigger the button's
+   click handler.
 
-4. **Image comparison** uses ImageMagick's `magick compare -metric AE`
-   to count differing pixels. A threshold of 100 pixels accommodates
-   minor rendering differences across environments.
+4. **Image comparison** uses ImageMagick's `magick compare -metric SSIM`
+   to measure structural similarity. A threshold accommodates minor
+   rendering differences across environments.
 
-## Future: GTK Support
+### Headless Backends
 
-The test API is backend-agnostic. Adding GTK support requires implementing
-`testing.rugo` and `registry.rugo` for the GTK backend:
+- **Qt**: `QT_QPA_PLATFORM=offscreen` -- built-in offscreen rendering,
+  no display server needed.
+- **GTK**: `xvfb-run -a` -- virtual X11 framebuffer. GTK4 has no built-in
+  offscreen mode, so a virtual display is required. The `screenshotops` Go
+  module uses the native renderer from the display surface to capture
+  widgets to PNG.
 
-- Screenshot: `gtk_widget_snapshot()` or Broadway-based capture
-- Click: `gtk_widget_activate()` for buttons
-- Registry: already implemented in `backend/gtk/lib/registry.rugo`
+## GTK Screenshot Pipeline
+
+The GTK backend uses a Go bridge module (`screenshotops/`) that chains
+GTK4/GDK/GSK C APIs via purego:
+
+1. `gtk_widget_paintable_new(window)` -- creates a paintable observer
+2. `gtk_snapshot_new()` -- creates a snapshot context
+3. `gdk_paintable_snapshot()` -- renders widget tree into snapshot
+4. `gtk_snapshot_free_to_node()` -- converts to a render node
+5. `gsk_renderer_render_texture()` -- rasterizes to a GDK texture
+6. `gdk_texture_save_to_png()` -- saves the texture to disk
+
+## Adding a New Backend
+
+To add visual testing for a new backend:
+
+1. Create `backend/<name>/lib/testing.rugo` with `screenshot()`, `click()`,
+   `set_text()`, and `find()` functions.
+2. Wire `test_*` functions in the backend's `main.rugo`.
+3. Add the backend directory under `tests/visual/<name>/`.
+4. Update `run.rugo` to handle the new backend's headless execution.

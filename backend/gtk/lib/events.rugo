@@ -52,6 +52,19 @@ def _timer_handle(id)
   h
 end
 
+# Single-shot callback that fires once the window is rendered and ready.
+# Connects to the window's "map" signal which fires when the window
+# is displayed on screen and rendering is complete.
+def ready(callback)
+  win = _ctx.window()
+  if win == nil
+    return nil
+  end
+  win.connect_signal("map", fn()
+    callback()
+  end)
+end
+
 # Keyboard shortcut from a key string (e.g. "Ctrl+Q", "Ctrl+S").
 def shortcut(key, callback)
   if _ctx.window() == nil || callback == nil

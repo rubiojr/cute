@@ -1,0 +1,103 @@
+# GTK testing primitives for Cute
+#
+# Provides screenshot capture and widget interaction for the GTK backend.
+# Used by the backend-agnostic test module (lib/test.rugo).
+#
+# Screenshots use the GtkWidgetPaintable → GskRenderer → GdkTexture
+# pipeline via puregotk bindings. Requires a display server (use
+# xvfb-run for headless).
+
+require "ctx" as "_ctx"
+require "registry" as "_registry"
+require "../testingops" as "_testingops"
+
+# -- Private helpers ----------------------------------------------------------
+
+# Flush pending GLib main loop events so widget redraws are
+# processed before screenshots.
+def _process_events()
+  ctx = _glib.main_context_default()
+  if ctx == nil
+    return nil
+  end
+  i = 0
+  while i < 3
+    while ctx.iteration(false)
+    end
+    i += 1
+  end
+end
+
+# -- Screenshot ---------------------------------------------------------------
+
+# Grab the main window and save as PNG.
+#
+# Pipeline: WidgetPaintable → Snapshot → RenderNode → Texture → PNG
+def screenshot(path)
+  win = _ctx.window()
+  if win == nil
+    return nil
+  end
+
+  # Flush pending redraws so the capture reflects current state
+  win.queue_draw()
+  _process_events()
+
+  w = win.get_width()
+  h = win.get_height()
+  if w <= 0 || h <= 0
+    return nil
+  end
+
+  native = win.get_native()
+  if native == nil
+    return nil
+  end
+  renderer = native.get_renderer()
+  if renderer == nil
+    return nil
+  end
+
+  paintable = gtk.new_widget_paintable(win)
+
+  # Snapshot paintable → node, then render to PNG via Go helper
+  # (Go helper needed because Rugo can't pass nil *graphene.Rect)
+  snapshot = gtk.new_snapshot()
+  paintable.snapshot(snapshot, w, h)
+  node = snapshot.free_to_node()
+  if node == nil
+    return nil
+  end
+
+  _testingops.render_and_save(
+    renderer.go_pointer(),
+    node.go_pointer(),
+    path
+  )
+end
+
+# -- Widget interaction -------------------------------------------------------
+
+# Find a widget by ID and simulate a click.
+def click(id)
+  widget = _registry.find(id)
+  if widget == nil
+    raise("test.click: widget not found: #{id}")
+  end
+  _testingops.emit_clicked(widget.go_pointer())
+  _process_events()
+end
+
+# Find a widget by ID and set its text (for input widgets).
+def set_text(id, text)
+  widget = _registry.find(id)
+  if widget == nil
+    raise("test.set_text: widget not found: #{id}")
+  end
+  widget.set_text(_ctx.to_text(text))
+end
+
+# Find a widget by ID and return it.
+def find(id)
+  _registry.find(id)
+end

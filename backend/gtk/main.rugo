@@ -21,6 +21,7 @@ require "lib/props" as "_props"
 require "lib/layouts" as "_layouts"
 require "lib/events" as "_events"
 require "lib/threading" as "_threading"
+require "lib/testing" as "_testing"
 require "lib/widgets/label" as "_label"
 require "lib/widgets/button" as "_button"
 require "lib/widgets/input" as "_input"
@@ -233,6 +234,7 @@ end
 # -- Events -------------------------------------------------------------------
 
 def shortcut(key, callback)                 _events.shortcut(key, callback) end
+def ready(callback)                         _events.ready(callback) end
 def after(ms, callback)                     _events.after(ms, callback) end
 def timer(ms, callback)                     _events.timer(ms, callback) end
 
@@ -248,3 +250,10 @@ end
 
 def ui(callback)                            _threading.ui(callback) end
 def fetch(work, on_done)                    _threading.fetch(work, on_done) end
+
+# -- Testing ------------------------------------------------------------------
+
+def test_screenshot(path)                   _testing.screenshot(path) end
+def test_click(id)                          _testing.click(id) end
+def test_set_text(id, text)                 _testing.set_text(id, text) end
+def test_find(id)                           _testing.find(id) end
