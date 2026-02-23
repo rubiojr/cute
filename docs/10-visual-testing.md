@@ -40,10 +40,13 @@ end
 
 ```bash
 # Generate reference images (first time)
-./tests/visual/run.sh --update
+rugo run tests/visual/run.rugo update
 
 # Verify against references
-./tests/visual/run.sh
+rugo run tests/visual/run.rugo
+
+# Run a single test
+rugo run tests/visual/run.rugo counter
 ```
 
 Tests run headlessly using `QT_QPA_PLATFORM=offscreen` -- no display

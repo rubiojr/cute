@@ -7,8 +7,8 @@
 #
 # Usage:
 #   rugo run tests/visual/run.rugo              # verify against references
-#   rugo run tests/visual/run.rugo --update     # regenerate reference images
-#   rugo run tests/visual/run.rugo counter      # run a single test
+#   rugo run tests/visual/run.rugo update      # regenerate reference images
+#   rugo run tests/visual/run.rugo counter     # run a single test
 
 use "os"
 use "str"
@@ -20,10 +20,10 @@ update = false
 test_filter = ""
 
 for arg in args
-  if arg == "--update"
+  if arg == "update"
     update = true
   end
-  if !str.starts_with(arg, "-")
+  if arg != "update"
     test_filter = arg
   end
 end

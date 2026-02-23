@@ -48,7 +48,7 @@ cute.app("Counter Test", 400, 300) do
     end
   end
 
-  cute.after(500, fn()
+  cute.after(0, fn()
     t.screenshot("initial")
 
     t.click("click-me")

@@ -4,8 +4,8 @@
 # Usage:
 #   rugo run scripts/test-docker.rugo                  # run all visual tests
 #   rugo run scripts/test-docker.rugo counter           # run a specific test
-#   rugo run scripts/test-docker.rugo --update          # regenerate reference images
-#   rugo run scripts/test-docker.rugo counter --update  # update a single test
+#   rugo run scripts/test-docker.rugo update            # regenerate reference images
+#   rugo run scripts/test-docker.rugo counter update    # update a single test
 #
 # The Docker image pins Fedora 43, Qt6, Go 1.26.0, and font versions
 # so reference images are portable across developer machines and CI.
@@ -21,8 +21,8 @@ update = false
 test_name = ""
 
 for arg in os.args()
-  update = true if arg == "--update"
-  test_name = arg if !str.starts_with(arg, "-")
+  update = true if arg == "update"
+  test_name = arg if arg != "update"
 end
 
 # -- Configuration ------------------------------------------------------------
@@ -52,10 +52,9 @@ if test_name != ""
   end
   puts out
 else
-  update_arg = update && "--update" || ""
+  update_arg = "update" if update
   out = try `docker run --rm #{vol} #{env} #{IMAGE} bash -c 'rugo run /cute/tests/visual/run.rugo #{update_arg}'` or err
     os.exit(1)
   end
-
   puts out
 end
